@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Santa Paula Post Acute — In-Service Tracker</title>
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" rel="stylesheet">
+<style>
+  :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--text:#1a1a1a;--text2:#5a5a5a;--text3:#999;--accent:#1a5c3a;--accent2:#2d7a52;--accent-light:#e8f3ed;--danger:#c0392b;--danger-light:#fdf0ef;--warning:#b7660a;--warning-light:#fef6e7;--info:#1a4a7a;--info-light:#e8f0f8;--radius:8px;--radius-lg:12px;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Georgia',serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  .app-header{background:var(--accent);color:white;padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:sticky;top:0;z-index:200;}
+  .app-header h1{font-size:18px;font-weight:normal;letter-spacing:0.02em;}
+  .app-header p{font-size:12px;opacity:0.75;margin-top:2px;font-family:sans-serif;}
+  .sticky-nav{position:sticky;top:72px;z-index:100;background:var(--bg);padding:1rem 0 0.5rem;}
+  .nav{display:flex;gap:4px;background:var(--surface);border-radius:var(--radius-lg);padding:4px;border:0.5px solid var(--border);width:fit-content;}
+  .nav button{font-size:13px;font-family:sans-serif;padding:7px 16px;border-radius:var(--radius);border:none;background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;}
+  .nav button.active{background:var(--accent);color:white;}
+  .nav button:not(.active):hover{background:var(--surface2);}
+  .main{max-width:1100px;margin:0 auto;padding:0 1.5rem 1.5rem;}
+  .metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem;}
+  .metric{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;}
+  .metric .mlabel{font-size:11px;font-family:sans-serif;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;}
+  .metric .mval{font-size:26px;color:var(--text);}
+  .metric .mval.green{color:var(--accent);}
+  .metric .mval.red{color:var(--danger);}
+  .metric .mval.amber{color:var(--warning);}
+  .dept-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:10px;}
+  .dept-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;cursor:pointer;transition:border-color 0.15s,box-shadow 0.15s;}
+  .dept-card:hover{border-color:var(--accent2);box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+  .dept-name{font-size:14px;color:var(--text);margin-bottom:3px;}
+  .dept-lead{font-size:12px;font-family:sans-serif;color:var(--text3);margin-bottom:10px;}
+  .prog-bar{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-bottom:8px;}
+  .prog-fill{height:100%;border-radius:2px;background:var(--accent);}
+  .dept-stats{display:flex;gap:6px;flex-wrap:wrap;}
+  .badge{font-size:11px;font-family:sans-serif;padding:2px 8px;border-radius:20px;}
+  .badge.compliant{background:var(--accent-light);color:var(--accent);}
+  .badge.overdue{background:var(--danger-light);color:var(--danger);}
+  .badge.inprog{background:var(--warning-light);color:var(--warning);}
+  .badge.notstarted{background:var(--surface2);color:var(--text3);}
+  .badge.na{background:var(--info-light);color:var(--info);}
+  .title-badge{font-size:11px;font-family:sans-serif;padding:2px 8px;border-radius:20px;background:var(--surface2);color:var(--text2);display:inline-block;margin:2px 2px 0 0;}
+  .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;}
+  .section-head h2{font-size:16px;font-weight:normal;color:var(--text);}
+  .back{font-size:13px;font-family:sans-serif;color:var(--text2);cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:1rem;padding:5px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface);}
+  .back:hover{background:var(--surface2);}
+  .card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:1rem 1.25rem;margin-bottom:1rem;overflow:hidden;}
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;font-family:sans-serif;}
+  th{text-align:left;font-weight:500;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;padding:8px 10px;border-bottom:0.5px solid var(--border);white-space:nowrap;}
+  td{padding:9px 10px;border-bottom:0.5px solid var(--border);color:var(--text);vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--surface2);}
+  input[type="text"],input[type="date"],select,textarea{font-size:13px;font-family:sans-serif;padding:7px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);width:100%;outline:none;transition:border-color 0.15s;}
+  input:focus,select:focus,textarea:focus{border-color:var(--accent2);}
+  .btn{font-size:13px;font-family:sans-serif;padding:7px 16px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--surface);color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all 0.15s;}
+  .btn:hover{background:var(--surface2);}
+  .btn.primary{background:var(--accent);color:white;border-color:transparent;}
+  .btn.primary:hover{background:var(--accent2);}
+  .btn-sm{font-size:12px;font-family:sans-serif;padding:4px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+  .btn-sm:hover{background:var(--surface2);}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+  .form-group{display:flex;flex-direction:column;gap:4px;margin-bottom:10px;}
+  .form-group label{font-size:11px;font-family:sans-serif;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;}
+  .emp-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:0.5px solid var(--border);}
+  .emp-row:last-child{border-bottom:none;}
+  .emp-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:12px;font-family:sans-serif;font-weight:600;color:var(--accent);flex-shrink:0;margin-top:2px;}
+  .emp-info{flex:1;}
+  .emp-name{font-size:14px;color:var(--text);margin-bottom:3px;}
+  .emp-meta{font-size:12px;font-family:sans-serif;color:var(--text2);margin-bottom:4px;}
+  .emp-actions{display:flex;gap:6px;flex-shrink:0;}
+  .att-entry{padding:12px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;}
+  .att-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;}
+  .att-who{font-size:14px;color:var(--text);}
+  .att-date{font-size:12px;font-family:sans-serif;color:var(--text3);}
+  .att-dept{font-size:12px;font-family:sans-serif;color:var(--text2);margin-bottom:3px;}
+  .att-item{font-size:13px;font-family:sans-serif;color:var(--text);}
+  .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem;}
+  .modal{background:var(--surface);border-radius:var(--radius-lg);border:0.5px solid var(--border);padding:1.5rem;width:520px;max-width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);}
+  .modal h3{font-size:16px;font-weight:normal;margin-bottom:4px;}
+  .modal .subtitle{font-size:12px;font-family:sans-serif;color:var(--text2);margin-bottom:1.25rem;}
+  .modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:0.5px solid var(--border);}
+  .filter-row{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;}
+  .filter-row select,.filter-row input[type="text"]{width:auto;flex:1;min-width:160px;max-width:260px;}
+  .empty{padding:2rem;text-align:center;color:var(--text3);font-family:sans-serif;font-size:13px;}
+  .pct-label{font-size:11px;font-family:sans-serif;color:var(--text3);text-align:right;margin-bottom:3px;}
+  .hdr-btn{font-size:13px;font-family:sans-serif;padding:7px 16px;border-radius:var(--radius);border:0.5px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.15);color:white;cursor:pointer;display:inline-flex;align-items:center;gap:5px;}
+  .hdr-btn:hover{background:rgba(255,255,255,0.25);}
+  .titles-selector{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .title-chip{font-size:12px;font-family:sans-serif;padding:4px 10px;border-radius:20px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text2);cursor:pointer;user-select:none;transition:all 0.1s;}
+  .title-chip.selected{background:var(--accent-light);color:var(--accent);border-color:var(--accent);}
+  .title-search{margin-bottom:8px;}
+  @media(max-width:600px){.form-row{grid-template-columns:1fr;}.main{padding:0 1rem 1rem;}.modal{padding:1rem;}}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div><h1>Santa Paula Post Acute</h1><p>In-Service &amp; Compliance Tracker</p></div>
+  <button class="hdr-btn" id="addEmpBtn"><i class="ti ti-user-plus"></i> Add Employee</button>
+</div>
+
+<div class="main">
+  <div class="sticky-nav"><div class="nav" id="mainNav"></div></div>
+  <div id="mainContent"></div>
+</div>
+<div id="modalContainer"></div>
+
+<script>
+const DEPTS=[{id:'NUR',name:'Nursing',lead:'DON'},{id:'ADM',name:'Administration',lead:'Administrator'},{id:'MDS',name:'MDS / Care Plans',lead:'MDS Coordinator'},{id:'THR',name:'Therapy / Rehab',lead:'Rehab Director'},{id:'DIE',name:'Dietary / Food Services',lead:'Dietary Manager'},{id:'ACT',name:'Activities',lead:'Activity Director'},{id:'SOC',name:'Social Services',lead:'Social Services Director'},{id:'HIM',name:'Medical Records / HIM',lead:'HIM Coordinator'},{id:'HSK',name:'Housekeeping & Laundry',lead:'EVS Director'},{id:'MNT',name:'Maintenance / Plant Ops',lead:'Maintenance Director'},{id:'BUS',name:'Business Office',lead:'Business Office Manager'},{id:'EDU',name:'Staff Development',lead:'DSD / Staff Development'}];
+
+const TITLES=[
+  'Administrator','Assistant Administrator',
+  'DON','ADON',
+  'RN','LVN','CNA','Charge Nurse',
+  'NP (Nurse Practitioner)','PA (Physician Assistant)',
+  'MDS Coordinator',
+  'Rehab Director','PT Director','PT','PT Assistant','PT Aide',
+  'OT','OTR (Occupational Therapist Registered)','COTA (Certified OT Assistant)',
+  'SLP','Speech Therapist','Speech Director',
+  'PTA','RT (Respiratory Therapist)','Rehab Aide',
+  'Dietary Manager','Registered Dietitian','CDM','Dietary Aide','Cook',
+  'Activity Director','Activities Supervisor','Activities Assistant',
+  'Social Services Director','Social Services Assistant',
+  'HIM Coordinator','Medical Records Clerk',
+  'IP (Infection Preventionist)',
+  'EVS Director','Housekeeping Staff','Laundry','Laundry Supervisor',
+  'Maintenance Director','Maintenance Supervisor','Maintenance Technician','Maintenance',
+  'Driver',
+  'Central Supply',
+  'Business Office Manager','Payroll Coordinator',
+  'DSD (Director of Staff Development)','Staff Development Coordinator',
+  'Compliance Officer','HR Coordinator','Scheduler','Receptionist',
+  'Medical Director','Attending Physician'
+];
+
+const TITLE_DEPT={'Administrator':'ADM','Assistant Administrator':'ADM','DON':'NUR','ADON':'NUR','RN':'NUR','LVN':'NUR','CNA':'NUR','Charge Nurse':'NUR','NP (Nurse Practitioner)':'NUR','PA (Physician Assistant)':'NUR','Scheduler':'NUR','MDS Coordinator':'MDS','Rehab Director':'THR','PT Director':'THR','PT':'THR','PT Assistant':'THR','PT Aide':'THR','OT':'THR','OTR (Occupational Therapist Registered)':'THR','COTA (Certified OT Assistant)':'THR','SLP':'THR','Speech Therapist':'THR','Speech Director':'THR','PTA':'THR','RT (Respiratory Therapist)':'THR','Rehab Aide':'THR','Dietary Manager':'DIE','Registered Dietitian':'DIE','CDM':'DIE','Dietary Aide':'DIE','Cook':'DIE','Activity Director':'ACT','Activities Supervisor':'ACT','Activities Assistant':'ACT','Social Services Director':'SOC','Social Services Assistant':'SOC','HIM Coordinator':'HIM','Medical Records Clerk':'HIM','IP (Infection Preventionist)':'HSK','EVS Director':'HSK','Housekeeping Staff':'HSK','Laundry':'HSK','Laundry Supervisor':'HSK','Maintenance Director':'MNT','Maintenance Supervisor':'MNT','Maintenance Technician':'MNT','Maintenance':'MNT','Driver':'MNT','Central Supply':'BUS','Business Office Manager':'BUS','Payroll Coordinator':'BUS','DSD (Director of Staff Development)':'EDU','Staff Development Coordinator':'EDU','Compliance Officer':'ADM','HR Coordinator':'ADM','Receptionist':'ADM','Medical Director':'ADM','Attending Physician':'ADM'};
+
+const ALL_ITEMS={NUR:[{id:'NUR-001',cat:'Regulatory & Survey',item:'F684 Quality of Care',ref:'F684 / 42 CFR 483.25',freq:'Quarterly'},{id:'NUR-002',cat:'Regulatory & Survey',item:'F689 Free of Accident Hazards / Falls',ref:'F689',freq:'Quarterly'},{id:'NUR-003',cat:'Regulatory & Survey',item:'F686 Pressure Injury Prevention & Treatment',ref:'F686',freq:'Monthly'},{id:'NUR-004',cat:'Regulatory & Survey',item:'F580 Notification of Change in Condition',ref:'F580',freq:'Per event'},{id:'NUR-005',cat:'Regulatory & Survey',item:'F604/F605 Restraint Use',ref:'F604/F605',freq:'Quarterly'},{id:'NUR-006',cat:'Regulatory & Survey',item:'F695 Respiratory / Trach / Vent Care',ref:'F695',freq:'Quarterly'},{id:'NUR-007',cat:'Training & Licensure',item:'RN/LVN License renewal tracking',ref:'CA BRN / BVNPT',freq:'Biennial'},{id:'NUR-008',cat:'Training & Licensure',item:'CNA certification renewal',ref:'CDPH',freq:'Every 2 years'},{id:'NUR-009',cat:'Training & Licensure',item:'BLS / CPR certification',ref:'AHA',freq:'Biennial'},{id:'NUR-010',cat:'Training & Licensure',item:'Annual abuse prevention training',ref:'Title 22 §72527',freq:'Annual'},{id:'NUR-011',cat:'Training & Licensure',item:'Dementia care training',ref:'Title 22',freq:'Annual'},{id:'NUR-012',cat:'Training & Licensure',item:'TB skin test / chest X-ray',ref:'Title 22 §72519',freq:'Annual'},{id:'NUR-013',cat:'Audits & Inspections',item:'Med pass observation audit',ref:'QAPI / F755',freq:'Monthly'},{id:'NUR-014',cat:'Audits & Inspections',item:'Treatment audit',ref:'QAPI',freq:'Monthly'},{id:'NUR-015',cat:'Audits & Inspections',item:'Fall investigation review',ref:'F689',freq:'Per event'},{id:'NUR-016',cat:'Audits & Inspections',item:'Restraint use audit',ref:'F604/F605',freq:'Monthly'},{id:'NUR-017',cat:'Audits & Inspections',item:'Skin / Wound rounds',ref:'F686',freq:'Weekly'},{id:'NUR-018',cat:'Policies & Documentation',item:'Medication administration policy review',ref:'F755',freq:'Annual'},{id:'NUR-019',cat:'Policies & Documentation',item:'Care plan policy review',ref:'F656',freq:'Annual'},{id:'NUR-020',cat:'Policies & Documentation',item:'Pain management policy review',ref:'F697',freq:'Annual'}],ADM:[{id:'ADM-001',cat:'Regulatory & Survey',item:'F835 Administration',ref:'F835',freq:'Ongoing'},{id:'ADM-002',cat:'Regulatory & Survey',item:'F837 Governing Body responsibilities',ref:'F837',freq:'Quarterly'},{id:'ADM-003',cat:'Regulatory & Survey',item:'F827 OIG / SAM exclusion screening',ref:'F827 / OIG',freq:'Monthly'},{id:'ADM-004',cat:'Regulatory & Survey',item:'CDPH facility license renewal',ref:'Title 22 §72003',freq:'Biennial'},{id:'ADM-005',cat:'Regulatory & Survey',item:'F865 QAPI Program',ref:'F865 / 42 CFR 483.75',freq:'Monthly'},{id:'ADM-006',cat:'Training & Licensure',item:'Administrator NHA license',ref:'NAB / CA NHAP',freq:'Biennial'},{id:'ADM-007',cat:'Training & Licensure',item:'Compliance & Ethics Officer training',ref:'OIG / F895',freq:'Annual'},{id:'ADM-008',cat:'Training & Licensure',item:'Governing body member orientation',ref:'F837',freq:'At appointment'},{id:'ADM-009',cat:'Audits & Inspections',item:'Mock annual survey',ref:'QAPI',freq:'Annual'},{id:'ADM-010',cat:'Audits & Inspections',item:'QAPI committee meeting',ref:'F865',freq:'Monthly'},{id:'ADM-011',cat:'Audits & Inspections',item:'Compliance & ethics program effectiveness review',ref:'F895',freq:'Annual'},{id:'ADM-012',cat:'Audits & Inspections',item:'Background check audit (LiveScan)',ref:'AB 1207',freq:'Annual'},{id:'ADM-013',cat:'Policies & Documentation',item:'Compliance program policy',ref:'F895',freq:'Annual'},{id:'ADM-014',cat:'Policies & Documentation',item:'Code of conduct',ref:'F895',freq:'Annual'},{id:'ADM-015',cat:'Policies & Documentation',item:'Whistleblower / non-retaliation policy',ref:'F895',freq:'Annual'},{id:'ADM-016',cat:'Policies & Documentation',item:'Sexual harassment / DFEH compliance',ref:'CA AB 1825/2053',freq:'Biennial'}],MDS:[{id:'MDS-001',cat:'Regulatory & Survey',item:'F636 Comprehensive Assessment timeliness',ref:'F636',freq:'Per admission'},{id:'MDS-002',cat:'Regulatory & Survey',item:'F637 Significant change assessment',ref:'F637',freq:'Per event'},{id:'MDS-003',cat:'Regulatory & Survey',item:'F640 MDS encoding & transmission',ref:'F640',freq:'Per assessment'},{id:'MDS-004',cat:'Regulatory & Survey',item:'F655 Baseline care plan within 48 hrs',ref:'F655',freq:'Per admission'},{id:'MDS-005',cat:'Regulatory & Survey',item:'F656 Comprehensive care plan within 7 days of MDS',ref:'F656',freq:'Per assessment'},{id:'MDS-006',cat:'Training & Licensure',item:'RAC-CT certification (MDS Coordinator)',ref:'AAPACN',freq:'Every 2 years'},{id:'MDS-007',cat:'Training & Licensure',item:'PDPM / RAI Manual update training',ref:'CMS',freq:'Annual'},{id:'MDS-008',cat:'Audits & Inspections',item:'MDS submission timeliness audit',ref:'QAPI',freq:'Monthly'},{id:'MDS-009',cat:'Audits & Inspections',item:'Care plan timeliness audit',ref:'F656',freq:'Monthly'},{id:'MDS-010',cat:'Audits & Inspections',item:'CAA documentation review',ref:'F655',freq:'Quarterly'},{id:'MDS-011',cat:'Audits & Inspections',item:'Section GG / O accuracy audit',ref:'PDPM',freq:'Monthly'},{id:'MDS-012',cat:'Policies & Documentation',item:'MDS / RAI process policy',ref:'F636',freq:'Annual'},{id:'MDS-013',cat:'Policies & Documentation',item:'Care plan policy',ref:'F656',freq:'Annual'}],THR:[{id:'THR-001',cat:'Regulatory & Survey',item:'F676 ADLs maintenance',ref:'F676',freq:'Quarterly'},{id:'THR-002',cat:'Regulatory & Survey',item:'F825 Specialized Rehab Services',ref:'F825',freq:'Ongoing'},{id:'THR-003',cat:'Regulatory & Survey',item:'F688 Mobility / Restorative',ref:'F688',freq:'Quarterly'},{id:'THR-004',cat:'Training & Licensure',item:'PT license verification',ref:'CA PTBC',freq:'Biennial'},{id:'THR-005',cat:'Training & Licensure',item:'OT license verification',ref:'CA BOT',freq:'Biennial'},{id:'THR-006',cat:'Training & Licensure',item:'SLP license verification',ref:'CA SLPAB',freq:'Biennial'},{id:'THR-007',cat:'Training & Licensure',item:'PTA / COTA license verification',ref:'CA PTBC / BOT',freq:'Biennial'},{id:'THR-008',cat:'Audits & Inspections',item:'Therapy minutes audit (MDS Section O)',ref:'F825 / PDPM',freq:'Weekly'},{id:'THR-009',cat:'Audits & Inspections',item:'Therapy evaluation timeliness',ref:'F676',freq:'Monthly'},{id:'THR-010',cat:'Audits & Inspections',item:'Discharge documentation audit',ref:'F660',freq:'Monthly'},{id:'THR-011',cat:'Audits & Inspections',item:'Group / Concurrent therapy log audit',ref:'PDPM',freq:'Monthly'},{id:'THR-012',cat:'Policies & Documentation',item:'Therapy services policy',ref:'F825',freq:'Annual'},{id:'THR-013',cat:'Policies & Documentation',item:'Restorative nursing program policy',ref:'F688',freq:'Annual'}],DIE:[{id:'DIE-001',cat:'Regulatory & Survey',item:'F800 Food and Nutrition Services',ref:'F800',freq:'Ongoing'},{id:'DIE-002',cat:'Regulatory & Survey',item:'F804 Food in Form Meeting Needs',ref:'F804',freq:'Daily'},{id:'DIE-003',cat:'Regulatory & Survey',item:'F805 Therapeutic Diets / RD oversight',ref:'F805',freq:'Ongoing'},{id:'DIE-004',cat:'Regulatory & Survey',item:'F812 Food Procurement / Storage / Sanitation',ref:'F812',freq:'Daily'},{id:'DIE-005',cat:'Regulatory & Survey',item:'F814 Disposal of Garbage and Refuse',ref:'F814',freq:'Daily'},{id:'DIE-006',cat:'Training & Licensure',item:'Food Handler card - all dietary staff',ref:'CA Health & Safety §113947',freq:'Every 3 years'},{id:'DIE-007',cat:'Training & Licensure',item:'Registered Dietitian (RD) license',ref:'CDR',freq:'Every 5 years'},{id:'DIE-008',cat:'Training & Licensure',item:'Certified Dietary Manager (CDM)',ref:'ANFP',freq:'Every 3 years'},{id:'DIE-009',cat:'Training & Licensure',item:'Person-in-charge food safety cert',ref:'CA H&S §113947.1',freq:'Every 5 years'},{id:'DIE-010',cat:'Audits & Inspections',item:'Food temperature logs',ref:'F812',freq:'Daily'},{id:'DIE-011',cat:'Audits & Inspections',item:'Refrigerator / freezer temperature logs',ref:'F812',freq:'Daily'},{id:'DIE-012',cat:'Audits & Inspections',item:'Dishmachine / 3-comp sink temperature logs',ref:'F812',freq:'Daily'},{id:'DIE-013',cat:'Audits & Inspections',item:'Ventura County Environmental Health inspection',ref:'County Health',freq:'Annual'},{id:'DIE-014',cat:'Audits & Inspections',item:'Therapeutic diet manual review',ref:'F805',freq:'Annual'},{id:'DIE-015',cat:'Audits & Inspections',item:'Test tray / meal observation',ref:'F804',freq:'Monthly'},{id:'DIE-016',cat:'Policies & Documentation',item:'Menu approval by RD',ref:'F805',freq:'Quarterly'},{id:'DIE-017',cat:'Policies & Documentation',item:'Food safety / HACCP policy review',ref:'F812',freq:'Annual'}],ACT:[{id:'ACT-001',cat:'Regulatory & Survey',item:'F679 Activities meet resident interests',ref:'F679',freq:'Ongoing'},{id:'ACT-002',cat:'Regulatory & Survey',item:'F680 Activity Director qualifications',ref:'F680',freq:'Ongoing'},{id:'ACT-003',cat:'Training & Licensure',item:'Activity Director certification (NCCAP / ACC)',ref:'NCCAP',freq:'Every 2 years'},{id:'ACT-004',cat:'Training & Licensure',item:'MEPAP I / II completion',ref:'NCCAP',freq:'One-time'},{id:'ACT-005',cat:'Audits & Inspections',item:'Activity calendar review',ref:'QAPI',freq:'Monthly'},{id:'ACT-006',cat:'Audits & Inspections',item:'Resident interest assessment on admission',ref:'F679',freq:'Per admission'},{id:'ACT-007',cat:'Audits & Inspections',item:'Participation tracking & 1:1 documentation',ref:'F679',freq:'Monthly'},{id:'ACT-008',cat:'Audits & Inspections',item:'Volunteer file audit',ref:'Title 22',freq:'Annual'},{id:'ACT-009',cat:'Policies & Documentation',item:'Activities program policy',ref:'F679',freq:'Annual'},{id:'ACT-010',cat:'Policies & Documentation',item:'Volunteer program policy',ref:'F679',freq:'Annual'}],SOC:[{id:'SOC-001',cat:'Regulatory & Survey',item:'F745 Provision of Medically-Related Social Services',ref:'F745',freq:'Ongoing'},{id:'SOC-002',cat:'Regulatory & Survey',item:'F550 Resident Rights / Dignity',ref:'F550',freq:'Ongoing'},{id:'SOC-003',cat:'Regulatory & Survey',item:'F585 Grievances',ref:'F585',freq:'Per event'},{id:'SOC-004',cat:'Regulatory & Survey',item:'F622 Transfer / Discharge requirements',ref:'F622',freq:'Per event'},{id:'SOC-005',cat:'Regulatory & Survey',item:'F660 Discharge Planning Process',ref:'F660',freq:'Per discharge'},{id:'SOC-006',cat:'Regulatory & Survey',item:'PASARR Level I / Level II screening',ref:'F645/F646',freq:'Per admission'},{id:'SOC-007',cat:'Training & Licensure',item:'LCSW / MSW / BSW license verification',ref:'CA BBS',freq:'Biennial'},{id:'SOC-008',cat:'Audits & Inspections',item:'Discharge planning audit',ref:'F660',freq:'Monthly'},{id:'SOC-009',cat:'Audits & Inspections',item:'Grievance log review',ref:'F585',freq:'Monthly'},{id:'SOC-010',cat:'Audits & Inspections',item:'Resident council minutes & follow-up',ref:'F565',freq:'Monthly'},{id:'SOC-011',cat:'Audits & Inspections',item:'Family council documentation',ref:'F565',freq:'Quarterly'},{id:'SOC-012',cat:'Policies & Documentation',item:'Resident rights policy',ref:'F550',freq:'Annual'},{id:'SOC-013',cat:'Policies & Documentation',item:'Grievance policy',ref:'F585',freq:'Annual'},{id:'SOC-014',cat:'Policies & Documentation',item:'Discharge / transfer policy',ref:'F622',freq:'Annual'}],HIM:[{id:'HIM-001',cat:'Regulatory & Survey',item:'F842 Resident Records - identifiable info safeguarded',ref:'F842',freq:'Ongoing'},{id:'HIM-002',cat:'Regulatory & Survey',item:'F843 Right to Access Records',ref:'F843',freq:'Per request'},{id:'HIM-003',cat:'Regulatory & Survey',item:'HIPAA Privacy Rule compliance',ref:'45 CFR 164',freq:'Ongoing'},{id:'HIM-004',cat:'Regulatory & Survey',item:'HIPAA Security Rule compliance',ref:'45 CFR 164.300',freq:'Ongoing'},{id:'HIM-005',cat:'Training & Licensure',item:'Annual HIPAA training - all staff',ref:'HIPAA',freq:'Annual'},{id:'HIM-006',cat:'Training & Licensure',item:'RHIT / RHIA / CCS certification (if applicable)',ref:'AHIMA',freq:'Every 2 years'},{id:'HIM-007',cat:'Audits & Inspections',item:'Closed chart audit',ref:'F842',freq:'Monthly'},{id:'HIM-008',cat:'Audits & Inspections',item:'Open chart audit',ref:'F842',freq:'Monthly'},{id:'HIM-009',cat:'Audits & Inspections',item:'Release of information (ROI) log review',ref:'F843',freq:'Monthly'},{id:'HIM-010',cat:'Audits & Inspections',item:'HIPAA breach risk assessment',ref:'HIPAA Breach Rule',freq:'Per event'},{id:'HIM-011',cat:'Audits & Inspections',item:'EMR access / audit log review',ref:'HIPAA Security',freq:'Quarterly'},{id:'HIM-012',cat:'Policies & Documentation',item:'HIPAA Privacy & Security policies',ref:'HIPAA',freq:'Annual'},{id:'HIM-013',cat:'Policies & Documentation',item:'Record retention policy',ref:'F842 / Title 22',freq:'Annual'},{id:'HIM-014',cat:'Policies & Documentation',item:'Release of information policy',ref:'F843',freq:'Annual'}],HSK:[{id:'HSK-001',cat:'Regulatory & Survey',item:'F584 Safe / Clean / Comfortable Environment',ref:'F584',freq:'Ongoing'},{id:'HSK-002',cat:'Regulatory & Survey',item:'F880 Infection Prevention & Control Program',ref:'F880',freq:'Ongoing'},{id:'HSK-003',cat:'Regulatory & Survey',item:'F881 Antibiotic Stewardship support',ref:'F881',freq:'Ongoing'},{id:'HSK-004',cat:'Regulatory & Survey',item:'F883 Influenza & Pneumococcal immunizations offered',ref:'F883',freq:'Annual'},{id:'HSK-005',cat:'Training & Licensure',item:'Bloodborne pathogens / OSHA training',ref:'OSHA 1910.1030',freq:'Annual'},{id:'HSK-006',cat:'Training & Licensure',item:'Hep B vaccination offered / declined documentation',ref:'OSHA',freq:'At hire'},{id:'HSK-007',cat:'Training & Licensure',item:'TB skin test',ref:'Title 22',freq:'Annual'},{id:'HSK-008',cat:'Training & Licensure',item:'Chemical / SDS training (HazCom)',ref:'OSHA 1910.1200',freq:'Annual'},{id:'HSK-009',cat:'Audits & Inspections',item:'Environmental rounds (cleanliness inspection)',ref:'F584',freq:'Monthly'},{id:'HSK-010',cat:'Audits & Inspections',item:'Linen / laundry handling audit',ref:'F880',freq:'Quarterly'},{id:'HSK-011',cat:'Audits & Inspections',item:'Cleaning schedule compliance audit',ref:'F584',freq:'Weekly'},{id:'HSK-012',cat:'Audits & Inspections',item:'Isolation / transmission-based precautions audit',ref:'F880',freq:'Monthly'},{id:'HSK-013',cat:'Audits & Inspections',item:'Hand hygiene compliance audit',ref:'F880',freq:'Monthly'},{id:'HSK-014',cat:'Policies & Documentation',item:'Infection prevention & control policy',ref:'F880',freq:'Annual'},{id:'HSK-015',cat:'Policies & Documentation',item:'Cleaning / disinfection policy',ref:'F584',freq:'Annual'}],MNT:[{id:'MNT-001',cat:'Regulatory & Survey',item:'K-Tag Life Safety Code compliance',ref:'NFPA 101 (2012)',freq:'Ongoing'},{id:'MNT-002',cat:'Regulatory & Survey',item:'F908 Essential equipment safe operation',ref:'F908',freq:'Ongoing'},{id:'MNT-003',cat:'Regulatory & Survey',item:'F921 Safe / Functional / Sanitary environment',ref:'F921',freq:'Ongoing'},{id:'MNT-004',cat:'Regulatory & Survey',item:'Emergency Preparedness Plan compliance',ref:'F838 / 42 CFR 483.73',freq:'Annual review'},{id:'MNT-005',cat:'Regulatory & Survey',item:'Water Management Plan (Legionella prevention)',ref:'CMS QSO-17-30',freq:'Annual review'},{id:'MNT-006',cat:'Training & Licensure',item:'OSHA general industry training',ref:'OSHA',freq:'Annual'},{id:'MNT-007',cat:'Training & Licensure',item:'NFPA / Life Safety training',ref:'NFPA',freq:'Annual'},{id:'MNT-008',cat:'Training & Licensure',item:'HazCom / SDS training',ref:'OSHA 1910.1200',freq:'Annual'},{id:'MNT-009',cat:'Training & Licensure',item:'Lockout / Tagout training',ref:'OSHA 1910.147',freq:'Annual'},{id:'MNT-010',cat:'Audits & Inspections',item:'Fire drills (each shift, quarterly)',ref:'NFPA 101',freq:'Quarterly per shift'},{id:'MNT-011',cat:'Audits & Inspections',item:'Fire alarm system testing',ref:'NFPA 72',freq:'Quarterly / Annual'},{id:'MNT-012',cat:'Audits & Inspections',item:'Sprinkler system inspection',ref:'NFPA 25',freq:'Quarterly / Annual'},{id:'MNT-013',cat:'Audits & Inspections',item:'Fire extinguisher inspection',ref:'NFPA 10',freq:'Monthly / Annual'},{id:'MNT-014',cat:'Audits & Inspections',item:'Generator weekly inspection',ref:'NFPA 110',freq:'Weekly'},{id:'MNT-015',cat:'Audits & Inspections',item:'Generator monthly load test',ref:'NFPA 110',freq:'Monthly'},{id:'MNT-016',cat:'Audits & Inspections',item:'Generator annual 4-hour load test',ref:'NFPA 110',freq:'Annual'},{id:'MNT-017',cat:'Audits & Inspections',item:'Disaster / emergency drill (full-scale)',ref:'F838',freq:'Annual (2x)'},{id:'MNT-018',cat:'Audits & Inspections',item:'Tabletop emergency exercise',ref:'F838',freq:'Annual'},{id:'MNT-019',cat:'Audits & Inspections',item:'Elopement drill',ref:'F689',freq:'Annual'},{id:'MNT-020',cat:'Audits & Inspections',item:'Eyewash station check',ref:'OSHA 1910.151',freq:'Weekly'},{id:'MNT-021',cat:'Audits & Inspections',item:'Hot water temperature monitoring',ref:'Title 22',freq:'Daily / Weekly'},{id:'MNT-022',cat:'Audits & Inspections',item:'HVAC filter changes / preventive maintenance',ref:'F921',freq:'Monthly'},{id:'MNT-023',cat:'Audits & Inspections',item:'Legionella water testing per WMP',ref:'CMS QSO-17-30',freq:'Per WMP'},{id:'MNT-024',cat:'Audits & Inspections',item:'Backflow preventer testing',ref:'Local code',freq:'Annual'},{id:'MNT-025',cat:'Audits & Inspections',item:'Kitchen hood / ANSUL inspection',ref:'NFPA 96',freq:'Semi-Annual'},{id:'MNT-026',cat:'Audits & Inspections',item:'Elevator inspection / certification',ref:'CA Cal-OSHA',freq:'Annual'},{id:'MNT-027',cat:'Audits & Inspections',item:'Boiler / pressure vessel inspection',ref:'Cal-OSHA',freq:'Annual'},{id:'MNT-028',cat:'Policies & Documentation',item:'Emergency Preparedness Plan review',ref:'F838',freq:'Annual'},{id:'MNT-029',cat:'Policies & Documentation',item:'Life Safety / Fire Safety Plan review',ref:'NFPA 101',freq:'Annual'},{id:'MNT-030',cat:'Policies & Documentation',item:'Water Management Plan review',ref:'CMS QSO-17-30',freq:'Annual'},{id:'MNT-031',cat:'Policies & Documentation',item:'Preventive maintenance program',ref:'F921',freq:'Annual'}],BUS:[{id:'BUS-001',cat:'Regulatory & Survey',item:'F570 Trust Funds Management',ref:'F570',freq:'Ongoing'},{id:'BUS-002',cat:'Regulatory & Survey',item:'F571 Trust Fund Accounting & Records',ref:'F571',freq:'Quarterly'},{id:'BUS-003',cat:'Regulatory & Survey',item:'F572 Notice of Rights / Services',ref:'F572',freq:'Per admission'},{id:'BUS-004',cat:'Regulatory & Survey',item:'Admission agreement compliance',ref:'Title 22 §72516',freq:'Per admission'},{id:'BUS-005',cat:'Regulatory & Survey',item:'Medi-Cal share of cost / Medicare billing accuracy',ref:'OIG',freq:'Per claim'},{id:'BUS-006',cat:'Training & Licensure',item:'HIPAA training',ref:'HIPAA',freq:'Annual'},{id:'BUS-007',cat:'Training & Licensure',item:'Fraud, Waste & Abuse training',ref:'OIG / DRA',freq:'Annual'},{id:'BUS-008',cat:'Audits & Inspections',item:'Trust fund quarterly statement to residents',ref:'F571',freq:'Quarterly'},{id:'BUS-009',cat:'Audits & Inspections',item:'Trust fund surety bond verification',ref:'F570',freq:'Annual'},{id:'BUS-010',cat:'Audits & Inspections',item:'Billing / accounts receivable audit',ref:'OIG',freq:'Quarterly'},{id:'BUS-011',cat:'Audits & Inspections',item:'Triple-check meeting (clinical/billing reconciliation)',ref:'PDPM',freq:'Monthly'},{id:'BUS-012',cat:'Policies & Documentation',item:'Trust fund policy',ref:'F570',freq:'Annual'},{id:'BUS-013',cat:'Policies & Documentation',item:'Billing & collections policy',ref:'F571',freq:'Annual'},{id:'BUS-014',cat:'Policies & Documentation',item:'Refund policy',ref:'F572',freq:'Annual'}],EDU:[{id:'EDU-001',cat:'Regulatory & Survey',item:'F941 Communication training',ref:'F941',freq:'Annual'},{id:'EDU-002',cat:'Regulatory & Survey',item:'F942 Resident rights / abuse prevention training',ref:'F942',freq:'Annual'},{id:'EDU-003',cat:'Regulatory & Survey',item:'F943 QAPI training',ref:'F943',freq:'Annual'},{id:'EDU-004',cat:'Regulatory & Survey',item:'F944 Infection Control training',ref:'F944',freq:'Annual'},{id:'EDU-005',cat:'Regulatory & Survey',item:'F945 Compliance & Ethics training',ref:'F945',freq:'Annual'},{id:'EDU-006',cat:'Regulatory & Survey',item:'F946 Behavioral Health training',ref:'F946',freq:'Annual'},{id:'EDU-007',cat:'Regulatory & Survey',item:'F947 Required CNA In-service (12 hrs/yr)',ref:'F947',freq:'Annual'},{id:'EDU-008',cat:'Regulatory & Survey',item:'F949 Behavioral health staff competencies',ref:'F949',freq:'Annual'},{id:'EDU-009',cat:'Audits & Inspections',item:'New hire orientation completion',ref:'Title 22',freq:'Per hire'},{id:'EDU-010',cat:'Audits & Inspections',item:'Annual competency completion (skills check-off)',ref:'F941',freq:'Annual'},{id:'EDU-011',cat:'Audits & Inspections',item:'In-service attendance roster review',ref:'F941',freq:'Monthly'},{id:'EDU-012',cat:'Audits & Inspections',item:'License / certification expiration tracker review',ref:'Title 22',freq:'Monthly'},{id:'EDU-013',cat:'Policies & Documentation',item:'Staff education / orientation policy',ref:'F941',freq:'Annual'},{id:'EDU-014',cat:'Policies & Documentation',item:'Competency assessment policy',ref:'F947',freq:'Annual'}]};
+
+let state={view:'dashboard',activeDept:null,employees:[],records:{},attendance:[]};
+let titleFilter=[];
+
+function loadState(){try{const s=localStorage.getItem('spa_v2');if(s){const p=JSON.parse(s);state.employees=p.employees||[];state.records=p.records||{};state.attendance=p.attendance||[];}}catch(e){}}
+function saveState(){try{localStorage.setItem('spa_v2',JSON.stringify({employees:state.employees,records:state.records,attendance:state.attendance}));}catch(e){}}
+loadState();
+
+function getRecord(id){return state.records[id]||{status:'Not Started',lastReview:'',nextDue:'',notes:'',evidence:'',owner:''};}
+function setRecord(id,data){state.records[id]={...getRecord(id),...data};saveState();}
+function statusBadge(s){const m={Compliant:'compliant',Overdue:'overdue','In Progress':'inprog','Not Started':'notstarted','N/A':'na'};return`<span class="badge ${m[s]||'notstarted'}">${s}</span>`;}
+function getDeptStats(d){const items=ALL_ITEMS[d]||[];const c={Compliant:0,'In Progress':0,Overdue:0,'Not Started':0,'N/A':0};items.forEach(i=>{const r=getRecord(i.id);c[r.status]=(c[r.status]||0)+1;});return{total:items.length,counts:c};}
+function getTotals(){let t={total:0,Compliant:0,'In Progress':0,Overdue:0,'Not Started':0};Object.keys(ALL_ITEMS).forEach(d=>{const s=getDeptStats(d);t.total+=s.total;t.Compliant+=s.counts.Compliant;t['In Progress']+=s.counts['In Progress'];t.Overdue+=s.counts.Overdue;t['Not Started']+=s.counts['Not Started'];});return t;}
+function initials(n){return n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
+function getTitlesArr(emp){return Array.isArray(emp.titles)?emp.titles:(emp.title?[emp.title]:[]);}
+function getPrimaryDept(emp){const ts=getTitlesArr(emp);for(const t of ts){if(TITLE_DEPT[t])return TITLE_DEPT[t];}return emp.dept||'ADM';}
+
+function navigate(view,dept=null){state.view=view;state.activeDept=dept;renderNav();renderMain();}
+function renderNav(){const nav=document.getElementById('mainNav');const tabs=[{id:'dashboard',label:'Dashboard',icon:'ti-layout-dashboard'},{id:'employees',label:'Employees',icon:'ti-users'},{id:'attendance',label:'Attendance Log',icon:'ti-clipboard-list'}];nav.innerHTML=tabs.map(t=>`<button class="${state.view===t.id?'active':''}" onclick="navigate('${t.id}')"><i class="ti ${t.icon}"></i> ${t.label}</button>`).join('');}
+
+function renderMain(){const el=document.getElementById('mainContent');if(state.view==='dashboard')el.innerHTML=renderDashboard();else if(state.view==='dept')el.innerHTML=renderDept();else if(state.view==='employees')el.innerHTML=renderEmployees();else if(state.view==='attendance')el.innerHTML=renderAttendance();}
+
+function renderDashboard(){const t=getTotals();const pct=t.total>0?Math.round(t.Compliant/t.total*100):0;let h=`<div class="metric-grid"><div class="metric"><div class="mlabel">Total items</div><div class="mval">${t.total}</div></div><div class="metric"><div class="mlabel">Compliant</div><div class="mval green">${t.Compliant}</div></div><div class="metric"><div class="mlabel">In progress</div><div class="mval amber">${t['In Progress']}</div></div><div class="metric"><div class="mlabel">Overdue</div><div class="mval red">${t.Overdue}</div></div><div class="metric"><div class="mlabel">% compliant</div><div class="mval">${pct}%</div></div><div class="metric"><div class="mlabel">Employees</div><div class="mval">${state.employees.length}</div></div></div><div class="dept-grid">`;DEPTS.forEach(d=>{const s=getDeptStats(d.id);const p=s.total>0?Math.round(s.counts.Compliant/s.total*100):0;h+=`<div class="dept-card" onclick="navigate('dept','${d.id}')"><div class="dept-name">${d.name}</div><div class="dept-lead"><i class="ti ti-user" style="font-size:12px"></i> ${d.lead}</div><div class="pct-label">${p}%</div><div class="prog-bar"><div class="prog-fill" style="width:${p}%"></div></div><div class="dept-stats"><span class="badge compliant">${s.counts.Compliant} compliant</span>${s.counts['In Progress']>0?`<span class="badge inprog">${s.counts['In Progress']} in progress</span>`:''}${s.counts.Overdue>0?`<span class="badge overdue">${s.counts.Overdue} overdue</span>`:''}<span class="badge notstarted">${s.counts['Not Started']} not started</span></div></div>`;});return h+'</div>';}
+
+function renderDept(){const d=DEPTS.find(x=>x.id===state.activeDept);if(!d)return'';const items=ALL_ITEMS[d.id]||[];let h=`<button class="back" onclick="navigate('dashboard')"><i class="ti ti-arrow-left"></i> Back to dashboard</button><div class="section-head"><h2>${d.name} &mdash; ${items.length} items</h2></div><div class="card"><div class="table-wrap"><table><thead><tr><th>ID</th><th>Category</th><th>Item</th><th>Frequency</th><th>Status</th><th>Last review</th><th>Next due</th><th></th></tr></thead><tbody>`;items.forEach(i=>{const r=getRecord(i.id);h+=`<tr><td style="font-size:11px;color:var(--text3);white-space:nowrap">${i.id}</td><td style="font-size:12px;color:var(--text2);white-space:nowrap">${i.cat}</td><td style="min-width:200px">${i.item}</td><td style="font-size:12px;white-space:nowrap">${i.freq}</td><td>${statusBadge(r.status)}</td><td style="font-size:12px;white-space:nowrap">${r.lastReview||'&mdash;'}</td><td style="font-size:12px;white-space:nowrap">${r.nextDue||'&mdash;'}</td><td><button class="btn-sm" onclick="openItemModal('${i.id}')"><i class="ti ti-edit"></i> Update</button></td></tr>`;});return h+'</tbody></table></div></div>';}
+
+function renderEmployees(){
+  const fD=document.getElementById('deptF')?.value||'';
+  const search=(document.getElementById('empSearch')?.value||'').toLowerCase();
+  let emps=state.employees.filter(e=>{
+    const ts=getTitlesArr(e);
+    const dept=getPrimaryDept(e);
+    const matchDept=!fD||dept===fD;
+    const matchSearch=!search||e.name.toLowerCase().includes(search);
+    return matchDept&&matchSearch;
+  });
+  let h=`<div class="section-head"><h2>Employees (${state.employees.length})</h2></div>
+  <div class="filter-row">
+    <input type="text" id="empSearch" placeholder="Search by name..." value="${document.getElementById('empSearch')?.value||''}" oninput="renderMain()" style="max-width:200px">
+    <select id="deptF" onchange="renderMain()"><option value="">All departments</option>${DEPTS.map(d=>`<option value="${d.id}"${fD===d.id?' selected':''}>${d.name}</option>`).join('')}</select>
+  </div><div class="card">`;
+  if(emps.length===0){h+=`<div class="empty"><i class="ti ti-users" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.3"></i>No employees found.</div>`;}
+  emps.forEach(e=>{
+    const idx=state.employees.indexOf(e);
+    const dept=DEPTS.find(d=>d.id===getPrimaryDept(e));
+    const ts=getTitlesArr(e);
+    h+=`<div class="emp-row">
+      <div class="emp-avatar">${initials(e.name)}</div>
+      <div class="emp-info">
+        <div class="emp-name">${e.name}</div>
+        <div class="emp-meta">${dept?dept.name:''} ${e.pin?'&middot; PIN: '+e.pin:''}</div>
+        <div>${ts.map(t=>`<span class="title-badge">${t}</span>`).join('')}</div>
+      </div>
+      <div class="emp-actions">
+        <button class="btn-sm" onclick="openAttendanceModal(${idx})"><i class="ti ti-clipboard-check"></i> Log</button>
+        <button class="btn-sm" onclick="openEditEmployeeModal(${idx})"><i class="ti ti-edit"></i> Edit</button>
+        <button class="btn-sm" onclick="removeEmployee(${idx})" style="color:var(--danger)"><i class="ti ti-trash"></i></button>
+      </div>
+    </div>`;
+  });
+  return h+'</div>';
+}
+
+function renderAttendance(){let h=`<div class="section-head"><h2>Attendance log (${state.attendance.length} entries)</h2></div>`;if(state.attendance.length===0){return h+`<div class="card"><div class="empty"><i class="ti ti-clipboard-list" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.3"></i>No attendance entries yet.</div></div>`;}[...state.attendance].reverse().forEach(a=>{h+=`<div class="att-entry"><div class="att-top"><span class="att-who"><i class="ti ti-user" style="font-size:13px"></i> ${a.empName}</span><span class="att-date">${a.date}</span></div><div class="att-dept">${a.titles||a.title||''} &middot; ${a.deptName}${a.trainer?' &middot; Trainer: '+a.trainer:''}</div><div class="att-item">${a.itemId} &mdash; ${a.itemLabel}</div>${a.notes?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${a.notes}</div>`:''}</div>`;});return h;}
+
+function titleSelectorHTML(selectedTitles,searchVal=''){
+  const sv=searchVal.toLowerCase();
+  const filtered=TITLES.filter(t=>!sv||t.toLowerCase().includes(sv));
+  return`<input type="text" class="title-search" id="titleSearch" placeholder="Search titles..." value="${searchVal}" oninput="updateTitleSelector()" style="margin-bottom:8px">
+  <div class="titles-selector" id="titlesSelector">${filtered.map(t=>`<span class="title-chip${selectedTitles.includes(t)?' selected':''}" onclick="toggleTitle('${t.replace(/'/g,"\\'")}',this)">${t}</span>`).join('')}</div>`;}
+
+function updateTitleSelector(){
+  const sv=document.getElementById('titleSearch').value;
+  const selected=Array.from(document.querySelectorAll('.title-chip.selected')).map(c=>c.textContent);
+  document.getElementById('titlesSelector').outerHTML=`<div class="titles-selector" id="titlesSelector">${TITLES.filter(t=>!sv||t.toLowerCase().includes(sv.toLowerCase())).map(t=>`<span class="title-chip${selected.includes(t)?' selected':''}" onclick="toggleTitle('${t.replace(/'/g,"\\'")}',this)">${t}</span>`).join('')}</div>`;}
+
+function toggleTitle(t,el){el.classList.toggle('selected');}
+function getSelectedTitles(){return Array.from(document.querySelectorAll('.title-chip.selected')).map(c=>c.textContent);}
+
+function openAddEmployeeModal(){
+  document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()">
+    <h3><i class="ti ti-user-plus"></i> Add employee</h3>
+    <div class="form-group"><label>Full name</label><input type="text" id="e-n" placeholder="First Last"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Employee ID / PIN</label><input type="text" id="e-p" placeholder="e.g. 1001"></div>
+      <div class="form-group"><label>Hire date</label><input type="date" id="e-h"></div>
+    </div>
+    <div class="form-group"><label>Job titles (select all that apply)</label>${titleSelectorHTML([])}</div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveEmployee()"><i class="ti ti-check"></i> Add employee</button></div>
+  </div></div>`;}
+
+function openEditEmployeeModal(idx){
+  const emp=state.employees[idx];if(!emp)return;
+  const ts=getTitlesArr(emp);
+  document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()">
+    <h3><i class="ti ti-edit"></i> Edit employee</h3>
+    <div class="form-group"><label>Full name</label><input type="text" id="e-n" value="${emp.name}"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Employee ID / PIN</label><input type="text" id="e-p" value="${emp.pin||''}"></div>
+      <div class="form-group"><label>Hire date</label><input type="date" id="e-h" value="${emp.hire||''}"></div>
+    </div>
+    <div class="form-group"><label>Job titles (select all that apply)</label>${titleSelectorHTML(ts)}</div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="updateEmployee(${idx})"><i class="ti ti-check"></i> Save changes</button></div>
+  </div></div>`;}
+
+function saveEmployee(){
+  const name=document.getElementById('e-n').value.trim();if(!name)return;
+  const titles=getSelectedTitles();
+  const dept=titles.length>0?(TITLE_DEPT[titles[0]]||'ADM'):'ADM';
+  state.employees.push({name,titles,dept,pin:document.getElementById('e-p').value,hire:document.getElementById('e-h').value});
+  saveState();closeModal();navigate('employees');}
+
+function updateEmployee(idx){
+  const name=document.getElementById('e-n').value.trim();if(!name)return;
+  const titles=getSelectedTitles();
+  const dept=titles.length>0?(TITLE_DEPT[titles[0]]||'ADM'):'ADM';
+  state.employees[idx]={...state.employees[idx],name,titles,dept,pin:document.getElementById('e-p').value,hire:document.getElementById('e-h').value};
+  saveState();closeModal();renderMain();}
+
+function removeEmployee(idx){if(confirm('Remove this employee?')){state.employees.splice(idx,1);saveState();renderMain();}}
+
+function openItemModal(itemId){const dept=Object.keys(ALL_ITEMS).find(d=>ALL_ITEMS[d].find(i=>i.id===itemId));const item=ALL_ITEMS[dept]?.find(i=>i.id===itemId);if(!item)return;const r=getRecord(itemId);document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()"><h3>${item.id} &mdash; ${item.item}</h3><div class="subtitle">${item.cat} &middot; ${item.freq} &middot; ${item.ref}</div><div class="form-row"><div class="form-group"><label>Status</label><select id="mi-s">${['Not Started','In Progress','Compliant','Overdue','N/A'].map(s=>`<option${r.status===s?' selected':''}>${s}</option>`).join('')}</select></div><div class="form-group"><label>Owner / responsible</label><input type="text" id="mi-o" value="${r.owner||''}" placeholder="Name or role"></div></div><div class="form-row"><div class="form-group"><label>Last review date</label><input type="date" id="mi-l" value="${r.lastReview}"></div><div class="form-group"><label>Next due date</label><input type="date" id="mi-n" value="${r.nextDue}"></div></div><div class="form-group"><label>Evidence / documentation</label><input type="text" id="mi-e" value="${r.evidence||''}" placeholder="Link or document reference"></div><div class="form-group"><label>Notes / corrective actions</label><input type="text" id="mi-nt" value="${r.notes||''}" placeholder="Optional notes"></div><div class="modal-footer"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveItem('${itemId}')"><i class="ti ti-check"></i> Save</button></div></div></div>`;}
+
+function saveItem(id){setRecord(id,{status:document.getElementById('mi-s').value,lastReview:document.getElementById('mi-l').value,nextDue:document.getElementById('mi-n').value,owner:document.getElementById('mi-o').value,evidence:document.getElementById('mi-e').value,notes:document.getElementById('mi-nt').value});closeModal();renderMain();}
+
+function openAttendanceModal(idx){const emp=state.employees[idx];if(!emp)return;const allItems=Object.values(ALL_ITEMS).flat();const ts=getTitlesArr(emp);document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()"><h3><i class="ti ti-clipboard-check"></i> Log in-service</h3><div class="subtitle">${emp.name} &middot; ${ts.join(', ')}</div><div class="form-group"><label>In-service / compliance item</label><select id="at-i">${allItems.map(i=>`<option value="${i.id}">${i.id} &mdash; ${i.item}</option>`).join('')}</select></div><div class="form-row"><div class="form-group"><label>Date completed</label><input type="date" id="at-d" value="${new Date().toISOString().slice(0,10)}"></div><div class="form-group"><label>Trainer / presenter</label><input type="text" id="at-t" placeholder="Name or title"></div></div><div class="form-group"><label>Notes</label><input type="text" id="at-n" placeholder="Optional notes"></div><div class="modal-footer"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveAttendance(${idx})"><i class="ti ti-check"></i> Save sign-off</button></div></div></div>`;}
+
+function saveAttendance(idx){const emp=state.employees[idx];const itemId=document.getElementById('at-i').value;const allItems=Object.values(ALL_ITEMS).flat();const item=allItems.find(i=>i.id===itemId);const dept=DEPTS.find(d=>d.id===getPrimaryDept(emp));const date=document.getElementById('at-d').value;const ts=getTitlesArr(emp);state.attendance.push({empName:emp.name,titles:ts.join(', '),deptName:dept?dept.name:emp.dept,itemId,itemLabel:item?item.item:itemId,date,trainer:document.getElementById('at-t').value,notes:document.getElementById('at-n').value});setRecord(itemId,{status:'Compliant',lastReview:date});saveState();closeModal();renderMain();}
+
+function closeModal(e){if(e&&e.target!==document.querySelector('.modal-overlay'))return;document.getElementById('modalContainer').innerHTML='';}
+
+document.getElementById('addEmpBtn').onclick=openAddEmployeeModal;
+renderNav();renderMain();
+</script>
+</body>
+</html>
