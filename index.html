@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Santa Paula Post Acute — In-Service Tracker</title>
 <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{--bg:#f5f4f0;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--text:#1a1a1a;--text2:#5a5a5a;--text3:#999;--accent:#1a5c3a;--accent2:#2d7a52;--accent-light:#e8f3ed;--danger:#c0392b;--danger-light:#fdf0ef;--warning:#b7660a;--warning-light:#fef6e7;--info:#1a4a7a;--info-light:#e8f0f8;--radius:8px;--radius-lg:12px;}
   *{box-sizing:border-box;margin:0;padding:0;}
@@ -119,13 +120,23 @@
     .report-print-table{font-size:10px;}
     .report-print-table th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
+  .upload-zone{border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:2rem 1rem;text-align:center;cursor:pointer;font-family:sans-serif;color:var(--text2);transition:border-color 0.15s,background 0.15s;}
+  .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent2);background:var(--accent-light);}
+  .upload-zone i{font-size:28px;display:block;margin-bottom:8px;opacity:0.5;}
+  .roster-result-section{margin-top:1rem;}
+  .roster-result-section h4{font-size:13px;font-family:sans-serif;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .roster-name-list{max-height:220px;overflow-y:auto;border:0.5px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;font-family:sans-serif;}
+  .roster-name-list div{padding:3px 0;}
 </style>
 </head>
 <body>
 
 <div class="app-header">
   <div><h1>Santa Paula Post Acute</h1><p>In-Service &amp; Compliance Tracker</p></div>
-  <button class="hdr-btn" id="addEmpBtn"><i class="ti ti-user-plus"></i> Add Employee</button>
+  <div style="display:flex;gap:8px">
+    <button class="hdr-btn" id="checkRosterBtn"><i class="ti ti-file-check"></i> Check Roster</button>
+    <button class="hdr-btn" id="addEmpBtn"><i class="ti ti-user-plus"></i> Add Employee</button>
+  </div>
 </div>
 
 <div class="main">
@@ -427,6 +438,96 @@ function openEditEmployeeModal(idx){
 
 function normalizeName(n){return n.trim().toLowerCase().replace(/\s+/g,' ');}
 
+function openRosterCheckModal(){
+  document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()">
+    <h3><i class="ti ti-file-check"></i> Check Roster Against Spreadsheet</h3>
+    <div class="subtitle">Upload your active employee spreadsheet (.xlsx, .xls, or .csv). The app will find names on your spreadsheet that aren't in the tracker yet, and tracker employees not on your spreadsheet.</div>
+    <div class="upload-zone" id="rosterDropZone" onclick="document.getElementById('rosterFileInput').click()">
+      <i class="ti ti-upload"></i>
+      <div>Click to choose a file, or drag and drop here</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Names should be in a column — any column header works (e.g. "Employee Name", "Name", "Full Name")</div>
+    </div>
+    <input type="file" id="rosterFileInput" accept=".xlsx,.xls,.csv" style="display:none">
+    <div id="rosterResults"></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal()">Close</button></div>
+  </div></div>`;
+  const dropZone=document.getElementById('rosterDropZone');
+  const fileInput=document.getElementById('rosterFileInput');
+  fileInput.addEventListener('change',e=>{if(e.target.files[0])handleRosterFile(e.target.files[0]);});
+  dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover');});
+  dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');if(e.dataTransfer.files[0])handleRosterFile(e.dataTransfer.files[0]);});
+}
+
+function extractNamesFromSheet(rows){
+  if(rows.length===0)return[];
+  const headerRow=rows[0].map(c=>String(c||'').toLowerCase().trim());
+  let nameColIdx=headerRow.findIndex(h=>h.includes('name'));
+  let startRow=1;
+  if(nameColIdx===-1){
+    // no header found that says "name" - assume column A has names, no header row to skip
+    nameColIdx=0;startRow=0;
+  }
+  const names=[];
+  for(let i=startRow;i<rows.length;i++){
+    const val=rows[i][nameColIdx];
+    if(val&&String(val).trim())names.push(String(val).trim());
+  }
+  return names;
+}
+
+function namesMatch(a,b){
+  const na=normalizeName(a),nb=normalizeName(b);
+  if(na===nb)return true;
+  const pa=na.split(' '),pb=nb.split(' ');
+  if(pa.length>=2&&pb.length>=2&&pa[0]===pb[0]&&pa[pa.length-1]===pb[pb.length-1])return true;
+  // handle "Last, First" format
+  if(na.includes(',')||nb.includes(',')){
+    const flip=s=>s.includes(',')?s.split(',').map(p=>p.trim()).reverse().join(' '):s;
+    return normalizeName(flip(a))===normalizeName(flip(b));
+  }
+  return false;
+}
+
+function handleRosterFile(file){
+  const resultsEl=document.getElementById('rosterResults');
+  resultsEl.innerHTML=`<div style="padding:1rem;text-align:center;color:var(--text3);font-family:sans-serif;font-size:13px"><i class="ti ti-loader"></i> Reading file...</div>`;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const firstSheet=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(firstSheet,{header:1,defval:''});
+      const spreadsheetNames=extractNamesFromSheet(rows);
+      if(spreadsheetNames.length===0){
+        resultsEl.innerHTML=`<div style="padding:1rem;color:var(--danger);font-family:sans-serif;font-size:13px">Couldn't find any names in that file. Make sure there's a column with employee names.</div>`;
+        return;
+      }
+      const trackerNames=state.employees.map(e=>e.name);
+      const missingFromTracker=spreadsheetNames.filter(sn=>!trackerNames.some(tn=>namesMatch(sn,tn)));
+      const extraInTracker=trackerNames.filter(tn=>!spreadsheetNames.some(sn=>namesMatch(sn,tn)));
+      let h=`<div class="roster-result-section">
+        <div style="font-size:13px;font-family:sans-serif;color:var(--text2);margin-bottom:10px">Spreadsheet: <strong>${spreadsheetNames.length}</strong> names &middot; Tracker: <strong>${trackerNames.length}</strong> employees</div>`;
+      h+=`<div class="roster-result-section"><h4 style="color:${missingFromTracker.length>0?'var(--danger)':'var(--accent)'}"><i class="ti ${missingFromTracker.length>0?'ti-alert-triangle':'ti-circle-check'}"></i> ${missingFromTracker.length===0?'Nobody missing — everyone on the spreadsheet is in the tracker':missingFromTracker.length+' on the spreadsheet but missing from the tracker'}</h4>`;
+      if(missingFromTracker.length>0){
+        h+=`<div class="roster-name-list">${missingFromTracker.map(n=>`<div><i class="ti ti-user-plus" style="font-size:12px;color:var(--text3)"></i> ${n}</div>`).join('')}</div>`;
+      }
+      h+='</div>';
+      h+=`<div class="roster-result-section"><h4 style="color:${extraInTracker.length>0?'var(--warning)':'var(--accent)'}"><i class="ti ${extraInTracker.length>0?'ti-alert-circle':'ti-circle-check'}"></i> ${extraInTracker.length===0?'No extra entries in the tracker':extraInTracker.length+' in the tracker but not found on the spreadsheet'}</h4>`;
+      if(extraInTracker.length>0){
+        h+=`<div class="roster-name-list">${extraInTracker.map(n=>`<div><i class="ti ti-user-x" style="font-size:12px;color:var(--text3)"></i> ${n}</div>`).join('')}</div>
+        <div style="font-size:11px;font-family:sans-serif;color:var(--text3);margin-top:6px">This could mean a duplicate entry, someone recently separated, or a name spelled differently on the spreadsheet.</div>`;
+      }
+      h+='</div></div>';
+      resultsEl.innerHTML=h;
+    }catch(err){
+      resultsEl.innerHTML=`<div style="padding:1rem;color:var(--danger);font-family:sans-serif;font-size:13px">Couldn't read that file. Make sure it's a valid .xlsx, .xls, or .csv file.</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function findPossibleDuplicates(name,excludeIdx=-1){
   const norm=normalizeName(name);
   return state.employees.filter((e,i)=>{
@@ -484,6 +585,7 @@ function saveAttendance(idx){const emp=state.employees[idx];const itemId=documen
 function closeModal(e){if(e&&e.target!==document.querySelector('.modal-overlay'))return;document.getElementById('modalContainer').innerHTML='';}
 
 document.getElementById('addEmpBtn').onclick=openAddEmployeeModal;
+document.getElementById('checkRosterBtn').onclick=openRosterCheckModal;
 renderNav();renderMain();
 </script>
 </body>
