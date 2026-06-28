@@ -40,6 +40,12 @@
   .badge.notstarted{background:var(--surface2);color:var(--text3);}
   .badge.na{background:var(--info-light);color:var(--info);}
   .title-badge{font-size:11px;font-family:sans-serif;padding:2px 8px;border-radius:20px;background:var(--surface2);color:var(--text2);display:inline-block;margin:2px 2px 0 0;}
+  .leave-badge{font-size:11px;font-family:sans-serif;padding:2px 8px;border-radius:20px;font-weight:600;display:inline-block;margin:2px 2px 0 0;}
+  .leave-badge.medical{background:var(--warning-light);color:var(--warning);}
+  .leave-badge.maternity{background:#f3e8fd;color:#7b3fa0;}
+  .leave-badge.personal{background:var(--info-light);color:var(--info);}
+  .leave-badge.terminated{background:var(--danger-light);color:var(--danger);}
+  .emp-row.on-leave{background:var(--surface2);border-radius:var(--radius);padding-left:8px;padding-right:8px;}
   .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:8px;}
   .section-head h2{font-size:16px;font-weight:normal;color:var(--text);}
   .back{font-size:13px;font-family:sans-serif;color:var(--text2);cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:1rem;padding:5px 10px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--surface);}
@@ -107,6 +113,13 @@
 <div id="modalContainer"></div>
 
 <script>
+const STATUS_OPTIONS=[
+  {id:'Active',label:'Active',cls:''},
+  {id:'Medical Leave',label:'Medical Leave',cls:'medical'},
+  {id:'Maternity/Paternity Leave',label:'Maternity/Paternity Leave',cls:'maternity'},
+  {id:'Personal Leave',label:'Personal Leave',cls:'personal'},
+  {id:'Terminated/Separated',label:'Terminated/Separated',cls:'terminated'}
+];
 const DEPTS=[{id:'NUR',name:'Nursing',lead:'DON'},{id:'ADM',name:'Administration',lead:'Administrator'},{id:'MDS',name:'MDS / Care Plans',lead:'MDS Coordinator'},{id:'THR',name:'Therapy / Rehab',lead:'Rehab Director'},{id:'DIE',name:'Dietary / Food Services',lead:'Dietary Manager'},{id:'ACT',name:'Activities',lead:'Activity Director'},{id:'SOC',name:'Social Services',lead:'Social Services Director'},{id:'HIM',name:'Medical Records / HIM',lead:'HIM Coordinator'},{id:'HSK',name:'Housekeeping & Laundry',lead:'EVS Director'},{id:'MNT',name:'Maintenance / Plant Ops',lead:'Maintenance Director'},{id:'BUS',name:'Business Office',lead:'Business Office Manager'},{id:'EDU',name:'Staff Development',lead:'DSD / Staff Development'}];
 
 const TITLES=[
@@ -166,36 +179,46 @@ function renderDept(){const d=DEPTS.find(x=>x.id===state.activeDept);if(!d)retur
 function renderEmployees(){
   const fD=document.getElementById('deptF')?.value||'';
   const fT=document.getElementById('titleF')?.value||'';
+  const fS=document.getElementById('statusF')?.value||'';
   const search=(document.getElementById('empSearch')?.value||'').toLowerCase();
   let emps=state.employees.filter(e=>{
     const ts=getTitlesArr(e);
     const dept=getPrimaryDept(e);
+    const status=e.status||'Active';
     const matchDept=!fD||dept===fD;
     const matchTitle=!fT||ts.includes(fT);
+    const matchStatus=!fS||status===fS;
     const matchSearch=!search||e.name.toLowerCase().includes(search);
-    return matchDept&&matchTitle&&matchSearch;
+    return matchDept&&matchTitle&&matchStatus&&matchSearch;
   });
+  const onLeaveCount=state.employees.filter(e=>e.status&&e.status!=='Active').length;
   let h=`<div class="section-head"><h2>Employees (${emps.length}${emps.length!==state.employees.length?' of '+state.employees.length:''})</h2></div>
   <div class="filter-row">
     <input type="text" id="empSearch" placeholder="Search by name..." value="${document.getElementById('empSearch')?.value||''}" oninput="renderMain()" style="max-width:200px">
     <select id="deptF" onchange="renderMain()"><option value="">All departments</option>${DEPTS.map(d=>`<option value="${d.id}"${fD===d.id?' selected':''}>${d.name}</option>`).join('')}</select>
     <select id="titleF" onchange="renderMain()"><option value="">All job titles</option>${TITLES.map(t=>`<option value="${t}"${fT===t?' selected':''}>${t}</option>`).join('')}</select>
-    ${(fD||fT||search)?`<button class="btn-sm" onclick="document.getElementById('empSearch').value='';document.getElementById('deptF').value='';document.getElementById('titleF').value='';renderMain()">Clear filters</button>`:''}
-  </div><div class="card">`;
+    <select id="statusF" onchange="renderMain()"><option value="">All statuses</option>${STATUS_OPTIONS.map(s=>`<option value="${s.id}"${fS===s.id?' selected':''}>${s.label}</option>`).join('')}</select>
+    ${(fD||fT||fS||search)?`<button class="btn-sm" onclick="document.getElementById('empSearch').value='';document.getElementById('deptF').value='';document.getElementById('titleF').value='';document.getElementById('statusF').value='';renderMain()">Clear filters</button>`:''}
+  </div>
+  ${onLeaveCount>0&&!fS?`<div style="font-size:12px;font-family:sans-serif;color:var(--text2);margin-bottom:10px"><i class="ti ti-info-circle"></i> ${onLeaveCount} employee${onLeaveCount>1?'s':''} currently not Active &mdash; <span style="cursor:pointer;text-decoration:underline" onclick="document.getElementById('statusF').value='Medical Leave';renderMain()">view</span></div>`:''}
+  <div class="card">`;
   if(emps.length===0){h+=`<div class="empty"><i class="ti ti-users" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.3"></i>No employees found.</div>`;}
   emps.forEach(e=>{
     const idx=state.employees.indexOf(e);
     const dept=DEPTS.find(d=>d.id===getPrimaryDept(e));
     const ts=getTitlesArr(e);
-    h+=`<div class="emp-row">
+    const status=e.status||'Active';
+    const statusInfo=STATUS_OPTIONS.find(s=>s.id===status);
+    const isOnLeave=status!=='Active';
+    h+=`<div class="emp-row${isOnLeave?' on-leave':''}">
       <div class="emp-avatar">${initials(e.name)}</div>
       <div class="emp-info">
         <div class="emp-name">${e.name}</div>
         <div class="emp-meta">${dept?dept.name:''} ${e.pin?'&middot; PIN: '+e.pin:''}</div>
-        <div>${ts.map(t=>`<span class="title-badge">${t}</span>`).join('')}</div>
+        <div>${isOnLeave?`<span class="leave-badge ${statusInfo.cls}"><i class="ti ti-alert-circle" style="font-size:11px"></i> ${statusInfo.label}</span>`:''}${ts.map(t=>`<span class="title-badge">${t}</span>`).join('')}</div>
       </div>
       <div class="emp-actions">
-        <button class="btn-sm" onclick="openAttendanceModal(${idx})"><i class="ti ti-clipboard-check"></i> Log</button>
+        <button class="btn-sm" onclick="openAttendanceModal(${idx})"${isOnLeave?' title="Employee is not Active"':''}><i class="ti ti-clipboard-check"></i> Log</button>
         <button class="btn-sm" onclick="openEditEmployeeModal(${idx})"><i class="ti ti-edit"></i> Edit</button>
         <button class="btn-sm" onclick="removeEmployee(${idx})" style="color:var(--danger)"><i class="ti ti-trash"></i></button>
       </div>
@@ -228,6 +251,7 @@ function openAddEmployeeModal(){
       <div class="form-group"><label>Employee ID / PIN</label><input type="text" id="e-p" placeholder="e.g. 1001"></div>
       <div class="form-group"><label>Hire date</label><input type="date" id="e-h"></div>
     </div>
+    <div class="form-group"><label>Status</label><select id="e-s">${STATUS_OPTIONS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('')}</select></div>
     <div class="form-group"><label>Job titles (select all that apply)</label>${titleSelectorHTML([])}</div>
     <div class="modal-footer"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveEmployee()"><i class="ti ti-check"></i> Add employee</button></div>
   </div></div>`;}
@@ -235,6 +259,7 @@ function openAddEmployeeModal(){
 function openEditEmployeeModal(idx){
   const emp=state.employees[idx];if(!emp)return;
   const ts=getTitlesArr(emp);
+  const curStatus=emp.status||'Active';
   document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()">
     <h3><i class="ti ti-edit"></i> Edit employee</h3>
     <div class="form-group"><label>Full name</label><input type="text" id="e-n" value="${emp.name}"></div>
@@ -242,22 +267,55 @@ function openEditEmployeeModal(idx){
       <div class="form-group"><label>Employee ID / PIN</label><input type="text" id="e-p" value="${emp.pin||''}"></div>
       <div class="form-group"><label>Hire date</label><input type="date" id="e-h" value="${emp.hire||''}"></div>
     </div>
+    <div class="form-group"><label>Status</label><select id="e-s">${STATUS_OPTIONS.map(s=>`<option value="${s.id}"${curStatus===s.id?' selected':''}>${s.label}</option>`).join('')}</select></div>
     <div class="form-group"><label>Job titles (select all that apply)</label>${titleSelectorHTML(ts)}</div>
     <div class="modal-footer"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="updateEmployee(${idx})"><i class="ti ti-check"></i> Save changes</button></div>
   </div></div>`;}
 
+function normalizeName(n){return n.trim().toLowerCase().replace(/\s+/g,' ');}
+
+function findPossibleDuplicates(name,excludeIdx=-1){
+  const norm=normalizeName(name);
+  return state.employees.filter((e,i)=>{
+    if(i===excludeIdx)return false;
+    const eNorm=normalizeName(e.name);
+    if(eNorm===norm)return true;
+    // catch same first+last name even with middle name/initial differences
+    const parts=norm.split(' ');
+    const eParts=eNorm.split(' ');
+    if(parts.length>=2&&eParts.length>=2){
+      if(parts[0]===eParts[0]&&parts[parts.length-1]===eParts[eParts.length-1])return true;
+    }
+    return false;
+  });
+}
+
 function saveEmployee(){
   const name=document.getElementById('e-n').value.trim();if(!name)return;
+  const dupes=findPossibleDuplicates(name);
+  if(dupes.length>0){
+    const dupeList=dupes.map(d=>`${d.name} (${getTitlesArr(d).join(', ')||'no title set'})`).join('\n');
+    const proceed=confirm(`Possible duplicate found:\n\n${dupeList}\n\nAdd "${name}" as a new employee anyway?`);
+    if(!proceed)return;
+  }
   const titles=getSelectedTitles();
   const dept=titles.length>0?(TITLE_DEPT[titles[0]]||'ADM'):'ADM';
-  state.employees.push({name,titles,dept,pin:document.getElementById('e-p').value,hire:document.getElementById('e-h').value});
+  const status=document.getElementById('e-s')?.value||'Active';
+  state.employees.push({name,titles,dept,status,pin:document.getElementById('e-p').value,hire:document.getElementById('e-h').value});
   saveState();closeModal();navigate('employees');}
 
 function updateEmployee(idx){
   const name=document.getElementById('e-n').value.trim();if(!name)return;
+  const dupes=findPossibleDuplicates(name,idx);
+  if(dupes.length>0){
+    const dupeList=dupes.map(d=>`${d.name} (${getTitlesArr(d).join(', ')||'no title set'})`).join('\n');
+    const proceed=confirm(`Possible duplicate found:\n\n${dupeList}\n\nSave "${name}" anyway?`);
+    if(!proceed)return;
+  }
   const titles=getSelectedTitles();
   const dept=titles.length>0?(TITLE_DEPT[titles[0]]||'ADM'):'ADM';
-  state.employees[idx]={...state.employees[idx],name,titles,dept,pin:document.getElementById('e-p').value,hire:document.getElementById('e-h').value};
+  const status=document.getElementById('e-s')?.value||'Active';
+  state.employees[idx]={...state.employees[idx],name,titles,dept,status,pin:document.getElementById('e-p').value,hire:document.getElementById('e-h').value};
   saveState();closeModal();renderMain();}
 
 function removeEmployee(idx){if(confirm('Remove this employee?')){state.employees.splice(idx,1);saveState();renderMain();}}
@@ -266,7 +324,7 @@ function openItemModal(itemId){const dept=Object.keys(ALL_ITEMS).find(d=>ALL_ITE
 
 function saveItem(id){setRecord(id,{status:document.getElementById('mi-s').value,lastReview:document.getElementById('mi-l').value,nextDue:document.getElementById('mi-n').value,owner:document.getElementById('mi-o').value,evidence:document.getElementById('mi-e').value,notes:document.getElementById('mi-nt').value});closeModal();renderMain();}
 
-function openAttendanceModal(idx){const emp=state.employees[idx];if(!emp)return;const allItems=Object.values(ALL_ITEMS).flat();const ts=getTitlesArr(emp);document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()"><h3><i class="ti ti-clipboard-check"></i> Log in-service</h3><div class="subtitle">${emp.name} &middot; ${ts.join(', ')}</div><div class="form-group"><label>In-service / compliance item</label><select id="at-i">${allItems.map(i=>`<option value="${i.id}">${i.id} &mdash; ${i.item}</option>`).join('')}</select></div><div class="form-row"><div class="form-group"><label>Date completed</label><input type="date" id="at-d" value="${new Date().toISOString().slice(0,10)}"></div><div class="form-group"><label>Trainer / presenter</label><input type="text" id="at-t" placeholder="Name or title"></div></div><div class="form-group"><label>Notes</label><input type="text" id="at-n" placeholder="Optional notes"></div><div class="modal-footer"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveAttendance(${idx})"><i class="ti ti-check"></i> Save sign-off</button></div></div></div>`;}
+function openAttendanceModal(idx){const emp=state.employees[idx];if(!emp)return;const allItems=Object.values(ALL_ITEMS).flat();const ts=getTitlesArr(emp);const status=emp.status||'Active';const statusInfo=STATUS_OPTIONS.find(s=>s.id===status);const isOnLeave=status!=='Active';document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()"><h3><i class="ti ti-clipboard-check"></i> Log in-service</h3><div class="subtitle">${emp.name} &middot; ${ts.join(', ')}</div>${isOnLeave?`<div style="background:var(--warning-light);color:var(--warning);font-size:12px;font-family:sans-serif;padding:8px 10px;border-radius:var(--radius);margin-bottom:1rem"><i class="ti ti-alert-circle"></i> This employee is currently marked <strong>${statusInfo.label}</strong>. Confirm they actually attended before logging.</div>`:''}<div class="form-group"><label>In-service / compliance item</label><select id="at-i">${allItems.map(i=>`<option value="${i.id}">${i.id} &mdash; ${i.item}</option>`).join('')}</select></div><div class="form-row"><div class="form-group"><label>Date completed</label><input type="date" id="at-d" value="${new Date().toISOString().slice(0,10)}"></div><div class="form-group"><label>Trainer / presenter</label><input type="text" id="at-t" placeholder="Name or title"></div></div><div class="form-group"><label>Notes</label><input type="text" id="at-n" placeholder="Optional notes"></div><div class="modal-footer"><button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveAttendance(${idx})"><i class="ti ti-check"></i> Save sign-off</button></div></div></div>`;}
 
 function saveAttendance(idx){const emp=state.employees[idx];const itemId=document.getElementById('at-i').value;const allItems=Object.values(ALL_ITEMS).flat();const item=allItems.find(i=>i.id===itemId);const dept=DEPTS.find(d=>d.id===getPrimaryDept(emp));const date=document.getElementById('at-d').value;const ts=getTitlesArr(emp);state.attendance.push({empName:emp.name,titles:ts.join(', '),deptName:dept?dept.name:emp.dept,itemId,itemLabel:item?item.item:itemId,date,trainer:document.getElementById('at-t').value,notes:document.getElementById('at-n').value});setRecord(itemId,{status:'Compliant',lastReview:date});saveState();closeModal();renderMain();}
 
