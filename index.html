@@ -228,6 +228,26 @@ function renderEmployees(){
   const fD=document.getElementById('deptF')?.value||'';
   const fT=document.getElementById('titleF')?.value||'';
   const fS=document.getElementById('statusF')?.value||'';
+  const search=document.getElementById('empSearch')?.value||'';
+  const onLeaveCount=state.employees.filter(e=>e.status&&e.status!=='Active').length;
+  let h=`<div class="section-head"><h2 id="empCountHeader">Employees (${state.employees.length})</h2></div>
+  <div class="filter-row">
+    <input type="text" id="empSearch" placeholder="Search by name..." value="${search}" oninput="refreshEmployeeList()" style="max-width:200px">
+    <select id="deptF" onchange="refreshEmployeeList()"><option value="">All departments</option>${DEPTS.map(d=>`<option value="${d.id}"${fD===d.id?' selected':''}>${d.name}</option>`).join('')}</select>
+    <select id="titleF" onchange="refreshEmployeeList()"><option value="">All job titles</option>${TITLES.map(t=>`<option value="${t}"${fT===t?' selected':''}>${t}</option>`).join('')}</select>
+    <select id="statusF" onchange="refreshEmployeeList()"><option value="">All statuses</option>${STATUS_OPTIONS.map(s=>`<option value="${s.id}"${fS===s.id?' selected':''}>${s.label}</option>`).join('')}</select>
+    <button class="btn-sm" id="clearFiltersBtn" onclick="document.getElementById('empSearch').value='';document.getElementById('deptF').value='';document.getElementById('titleF').value='';document.getElementById('statusF').value='';refreshEmployeeList()" style="display:${(fD||fT||fS||search)?'inline-flex':'none'}">Clear filters</button>
+  </div>
+  <div id="onLeaveNotice" style="font-size:12px;font-family:sans-serif;color:var(--text2);margin-bottom:10px;display:${onLeaveCount>0&&!fS?'block':'none'}"><i class="ti ti-info-circle"></i> ${onLeaveCount} employee${onLeaveCount!==1?'s':''} currently not Active &mdash; <span style="cursor:pointer;text-decoration:underline" onclick="document.getElementById('statusF').value='Medical Leave';refreshEmployeeList()">view</span></div>
+  <div class="card" id="empListContainer"></div>`;
+  setTimeout(refreshEmployeeList,0);
+  return h;
+}
+
+function refreshEmployeeList(){
+  const fD=document.getElementById('deptF')?.value||'';
+  const fT=document.getElementById('titleF')?.value||'';
+  const fS=document.getElementById('statusF')?.value||'';
   const search=(document.getElementById('empSearch')?.value||'').toLowerCase();
   let emps=state.employees.filter(e=>{
     const ts=getTitlesArr(e);
@@ -239,18 +259,14 @@ function renderEmployees(){
     const matchSearch=!search||e.name.toLowerCase().includes(search);
     return matchDept&&matchTitle&&matchStatus&&matchSearch;
   });
-  const onLeaveCount=state.employees.filter(e=>e.status&&e.status!=='Active').length;
-  let h=`<div class="section-head"><h2>Employees (${emps.length}${emps.length!==state.employees.length?' of '+state.employees.length:''})</h2></div>
-  <div class="filter-row">
-    <input type="text" id="empSearch" placeholder="Search by name..." value="${document.getElementById('empSearch')?.value||''}" oninput="renderMain()" style="max-width:200px">
-    <select id="deptF" onchange="renderMain()"><option value="">All departments</option>${DEPTS.map(d=>`<option value="${d.id}"${fD===d.id?' selected':''}>${d.name}</option>`).join('')}</select>
-    <select id="titleF" onchange="renderMain()"><option value="">All job titles</option>${TITLES.map(t=>`<option value="${t}"${fT===t?' selected':''}>${t}</option>`).join('')}</select>
-    <select id="statusF" onchange="renderMain()"><option value="">All statuses</option>${STATUS_OPTIONS.map(s=>`<option value="${s.id}"${fS===s.id?' selected':''}>${s.label}</option>`).join('')}</select>
-    ${(fD||fT||fS||search)?`<button class="btn-sm" onclick="document.getElementById('empSearch').value='';document.getElementById('deptF').value='';document.getElementById('titleF').value='';document.getElementById('statusF').value='';renderMain()">Clear filters</button>`:''}
-  </div>
-  ${onLeaveCount>0&&!fS?`<div style="font-size:12px;font-family:sans-serif;color:var(--text2);margin-bottom:10px"><i class="ti ti-info-circle"></i> ${onLeaveCount} employee${onLeaveCount>1?'s':''} currently not Active &mdash; <span style="cursor:pointer;text-decoration:underline" onclick="document.getElementById('statusF').value='Medical Leave';renderMain()">view</span></div>`:''}
-  <div class="card">`;
-  if(emps.length===0){h+=`<div class="empty"><i class="ti ti-users" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.3"></i>No employees found.</div>`;}
+  const header=document.getElementById('empCountHeader');
+  if(header)header.textContent=`Employees (${emps.length}${emps.length!==state.employees.length?' of '+state.employees.length:''})`;
+  const clearBtn=document.getElementById('clearFiltersBtn');
+  if(clearBtn)clearBtn.style.display=(fD||fT||fS||search)?'inline-flex':'none';
+  const onLeaveNotice=document.getElementById('onLeaveNotice');
+  if(onLeaveNotice){const onLeaveCount=state.employees.filter(e=>e.status&&e.status!=='Active').length;onLeaveNotice.style.display=(onLeaveCount>0&&!fS)?'block':'none';}
+  let h='';
+  if(emps.length===0){h=`<div class="empty"><i class="ti ti-users" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.3"></i>No employees found.</div>`;}
   emps.forEach(e=>{
     const idx=state.employees.indexOf(e);
     const dept=DEPTS.find(d=>d.id===getPrimaryDept(e));
@@ -272,7 +288,8 @@ function renderEmployees(){
       </div>
     </div>`;
   });
-  return h+'</div>';
+  const container=document.getElementById('empListContainer');
+  if(container)container.innerHTML=h;
 }
 
 function renderAttendance(){let h=`<div class="section-head"><h2>Attendance log (${state.attendance.length} entries)</h2></div>`;if(state.attendance.length===0){return h+`<div class="card"><div class="empty"><i class="ti ti-clipboard-list" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.3"></i>No attendance entries yet.</div></div>`;}[...state.attendance].reverse().forEach(a=>{h+=`<div class="att-entry"><div class="att-top"><span class="att-who"><i class="ti ti-user" style="font-size:13px"></i> ${a.empName}</span><span class="att-date">${a.date}</span></div><div class="att-dept">${a.titles||a.title||''} &middot; ${a.deptName}${a.trainer?' &middot; Trainer: '+a.trainer:''}</div><div class="att-item">${a.itemId} &mdash; ${a.itemLabel}</div>${a.notes?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${a.notes}</div>`:''}</div>`;});return h;}
