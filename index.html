@@ -123,6 +123,17 @@
   .upload-zone{border:2px dashed var(--border2);border-radius:var(--radius-lg);padding:2rem 1rem;text-align:center;cursor:pointer;font-family:sans-serif;color:var(--text2);transition:border-color 0.15s,background 0.15s;}
   .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent2);background:var(--accent-light);}
   .upload-zone i{font-size:28px;display:block;margin-bottom:8px;opacity:0.5;}
+  .session-attendee-chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-light);color:var(--accent);font-size:13px;font-family:sans-serif;padding:4px 10px;border-radius:20px;margin:3px;}
+  .session-attendee-chip .remove-chip{cursor:pointer;opacity:0.6;font-size:14px;line-height:1;}
+  .session-attendee-chip .remove-chip:hover{opacity:1;}
+  .autocomplete-list{position:absolute;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,0.12);z-index:50;max-height:200px;overflow-y:auto;width:100%;}
+  .autocomplete-item{padding:8px 12px;font-size:13px;font-family:sans-serif;cursor:pointer;display:flex;align-items:center;gap:8px;}
+  .autocomplete-item:hover,.autocomplete-item.selected{background:var(--accent-light);color:var(--accent);}
+  .autocomplete-item .ac-title{font-size:11px;color:var(--text3);}
+  .attendee-wrap{position:relative;}
+  .bulk-add-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+  .bulk-add-row select{flex:1;min-width:140px;max-width:220px;}
+  .session-saved{background:var(--accent-light);color:var(--accent);font-size:13px;font-family:sans-serif;padding:10px 14px;border-radius:var(--radius);margin-top:1rem;display:none;}
   .roster-result-section{margin-top:1rem;}
   .roster-result-section h4{font-size:13px;font-family:sans-serif;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
   .roster-name-list{max-height:220px;overflow-y:auto;border:0.5px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;font-family:sans-serif;}
@@ -201,9 +212,9 @@ function getTitlesArr(emp){return Array.isArray(emp.titles)?emp.titles:(emp.titl
 function getPrimaryDept(emp){const ts=getTitlesArr(emp);for(const t of ts){if(TITLE_DEPT[t])return TITLE_DEPT[t];}return emp.dept||'ADM';}
 
 function navigate(view,dept=null){state.view=view;state.activeDept=dept;renderNav();renderMain();}
-function renderNav(){const nav=document.getElementById('mainNav');const tabs=[{id:'dashboard',label:'Dashboard',icon:'ti-layout-dashboard'},{id:'employees',label:'Employees',icon:'ti-users'},{id:'attendance',label:'Attendance Log',icon:'ti-clipboard-list'},{id:'reports',label:'Reports',icon:'ti-printer'}];nav.innerHTML=tabs.map(t=>`<button class="${state.view===t.id?'active':''}" onclick="navigate('${t.id}')"><i class="ti ${t.icon}"></i> ${t.label}</button>`).join('');}
+function renderNav(){const nav=document.getElementById('mainNav');const tabs=[{id:'dashboard',label:'Dashboard',icon:'ti-layout-dashboard'},{id:'log-session',label:'Log Session',icon:'ti-writing'},{id:'employees',label:'Employees',icon:'ti-users'},{id:'attendance',label:'Attendance Log',icon:'ti-clipboard-list'},{id:'reports',label:'Reports',icon:'ti-printer'}];nav.innerHTML=tabs.map(t=>`<button class="${state.view===t.id?'active':''}" onclick="navigate('${t.id}')"><i class="ti ${t.icon}"></i> ${t.label}</button>`).join('');}
 
-function renderMain(){const el=document.getElementById('mainContent');if(state.view==='dashboard')el.innerHTML=renderDashboard();else if(state.view==='dept')el.innerHTML=renderDept();else if(state.view==='employees')el.innerHTML=renderEmployees();else if(state.view==='attendance')el.innerHTML=renderAttendance();else if(state.view==='reports')el.innerHTML=renderReports();else if(state.view==='report-detail')el.innerHTML=renderReportDetail();}
+function renderMain(){const el=document.getElementById('mainContent');if(state.view==='dashboard')el.innerHTML=renderDashboard();else if(state.view==='dept')el.innerHTML=renderDept();else if(state.view==='employees')el.innerHTML=renderEmployees();else if(state.view==='log-session')el.innerHTML=renderLogSession();else if(state.view==='attendance')el.innerHTML=renderAttendance();else if(state.view==='reports')el.innerHTML=renderReports();else if(state.view==='report-detail')el.innerHTML=renderReportDetail();}
 
 function getEmpCountByDept(deptId){return state.employees.filter(e=>getPrimaryDept(e)===deptId&&(e.status||'Active')==='Active').length;}
 function getEmpCountByDeptAll(deptId){return state.employees.filter(e=>getPrimaryDept(e)===deptId).length;}
@@ -291,6 +302,176 @@ function refreshEmployeeList(){
   const container=document.getElementById('empListContainer');
   if(container)container.innerHTML=h;
 }
+
+// ── LOG SESSION ──────────────────────────────────────────────
+let sessionAttendees=[];// {idx, name, titles, dept}
+let acHighlight=-1;
+
+function renderLogSession(){
+  const allItems=Object.values(ALL_ITEMS).flat();
+  sessionAttendees=[];
+  return`<div class="section-head"><h2>Log In-Service Session</h2></div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="form-row">
+      <div class="form-group">
+        <label>In-service / compliance item</label>
+        <select id="sess-item" style="font-size:13px">
+          ${allItems.map(i=>`<option value="${i.id}">${i.id} — ${i.item}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date of session</label>
+        <input type="date" id="sess-date" value="${new Date().toISOString().slice(0,10)}">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Trainer / presenter</label>
+        <input type="text" id="sess-trainer" placeholder="Name or title">
+      </div>
+      <div class="form-group">
+        <label>Notes (optional)</label>
+        <input type="text" id="sess-notes" placeholder="e.g. location, handout given">
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1rem">
+    <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:10px">Add Attendees</div>
+    <div class="bulk-add-row">
+      <select id="bulk-dept" style="font-size:12px"><option value="">Add entire department...</option>${DEPTS.map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
+      <select id="bulk-title" style="font-size:12px"><option value="">Add by job title...</option>${TITLES.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>
+      <button class="btn-sm" onclick="bulkAddByDept()"><i class="ti ti-users"></i> Add dept</button>
+      <button class="btn-sm" onclick="bulkAddByTitle()"><i class="ti ti-tag"></i> Add title</button>
+      <button class="btn-sm" onclick="addAllActive()" style="color:var(--accent)"><i class="ti ti-user-check"></i> Add all active</button>
+    </div>
+    <div class="attendee-wrap" style="margin-bottom:8px">
+      <input type="text" id="sess-search" placeholder="Type a name to search and add..." autocomplete="off"
+        oninput="showAttendeeAC()" onkeydown="handleACKey(event)" style="margin-bottom:4px">
+      <div class="autocomplete-list" id="ac-list" style="display:none"></div>
+    </div>
+    <div id="sess-chips" style="min-height:36px;padding:4px 0"></div>
+    <div style="font-size:12px;font-family:sans-serif;color:var(--text3);margin-top:4px" id="sess-count">0 attendees added</div>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn primary" onclick="saveSession()"><i class="ti ti-check"></i> Save Session</button>
+    <button class="btn" onclick="sessionAttendees=[];refreshChips()"><i class="ti ti-x"></i> Clear attendees</button>
+  </div>
+  <div class="session-saved" id="sess-saved"><i class="ti ti-circle-check"></i> Session saved! <span id="sess-saved-count"></span> employees logged.</div>`;
+}
+
+function showAttendeeAC(){
+  const q=(document.getElementById('sess-search')?.value||'').toLowerCase().trim();
+  const list=document.getElementById('ac-list');
+  if(!q){list.style.display='none';return;}
+  const matches=state.employees.filter(e=>{
+    const alreadyAdded=sessionAttendees.some(a=>a.idx===state.employees.indexOf(e));
+    return !alreadyAdded&&(e.status||'Active')==='Active'&&e.name.toLowerCase().includes(q);
+  }).slice(0,8);
+  if(matches.length===0){list.style.display='none';return;}
+  acHighlight=-1;
+  list.innerHTML=matches.map((e,i)=>{
+    const idx=state.employees.indexOf(e);
+    const ts=getTitlesArr(e);
+    return`<div class="autocomplete-item" data-idx="${idx}" onmousedown="addAttendeeByIdx(${idx})">
+      <div class="emp-avatar" style="width:26px;height:26px;font-size:10px;flex-shrink:0">${initials(e.name)}</div>
+      <div><div>${e.name}</div><div class="ac-title">${ts.slice(0,2).join(', ')}</div></div>
+    </div>`;
+  }).join('');
+  list.style.display='block';
+}
+
+function handleACKey(e){
+  const list=document.getElementById('ac-list');
+  const items=list.querySelectorAll('.autocomplete-item');
+  if(e.key==='ArrowDown'){e.preventDefault();acHighlight=Math.min(acHighlight+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('selected',i===acHighlight));}
+  else if(e.key==='ArrowUp'){e.preventDefault();acHighlight=Math.max(acHighlight-1,0);items.forEach((el,i)=>el.classList.toggle('selected',i===acHighlight));}
+  else if(e.key==='Enter'){e.preventDefault();if(acHighlight>=0&&items[acHighlight]){const idx=parseInt(items[acHighlight].dataset.idx);addAttendeeByIdx(idx);}else if(items.length===1){const idx=parseInt(items[0].dataset.idx);addAttendeeByIdx(idx);}}
+  else if(e.key==='Escape'){list.style.display='none';}
+}
+
+function addAttendeeByIdx(idx){
+  const emp=state.employees[idx];
+  if(!emp)return;
+  if(sessionAttendees.some(a=>a.idx===idx))return;
+  const dept=DEPTS.find(d=>d.id===getPrimaryDept(emp));
+  sessionAttendees.push({idx,name:emp.name,titles:getTitlesArr(emp).join(', '),dept:dept?dept.name:''});
+  const inp=document.getElementById('sess-search');
+  if(inp){inp.value='';inp.focus();}
+  const list=document.getElementById('ac-list');
+  if(list)list.style.display='none';
+  refreshChips();
+}
+
+function bulkAddByDept(){
+  const deptId=document.getElementById('bulk-dept')?.value;
+  if(!deptId)return;
+  state.employees.forEach((e,idx)=>{
+    if(getPrimaryDept(e)===deptId&&(e.status||'Active')==='Active'&&!sessionAttendees.some(a=>a.idx===idx)){
+      const dept=DEPTS.find(d=>d.id===deptId);
+      sessionAttendees.push({idx,name:e.name,titles:getTitlesArr(e).join(', '),dept:dept?dept.name:''});
+    }
+  });
+  refreshChips();
+}
+
+function bulkAddByTitle(){
+  const title=document.getElementById('bulk-title')?.value;
+  if(!title)return;
+  state.employees.forEach((e,idx)=>{
+    if(getTitlesArr(e).includes(title)&&(e.status||'Active')==='Active'&&!sessionAttendees.some(a=>a.idx===idx)){
+      const dept=DEPTS.find(d=>d.id===getPrimaryDept(e));
+      sessionAttendees.push({idx,name:e.name,titles:getTitlesArr(e).join(', '),dept:dept?dept.name:''});
+    }
+  });
+  refreshChips();
+}
+
+function addAllActive(){
+  state.employees.forEach((e,idx)=>{
+    if((e.status||'Active')==='Active'&&!sessionAttendees.some(a=>a.idx===idx)){
+      const dept=DEPTS.find(d=>d.id===getPrimaryDept(e));
+      sessionAttendees.push({idx,name:e.name,titles:getTitlesArr(e).join(', '),dept:dept?dept.name:''});
+    }
+  });
+  refreshChips();
+}
+
+function removeAttendee(idx){
+  sessionAttendees=sessionAttendees.filter(a=>a.idx!==idx);
+  refreshChips();
+}
+
+function refreshChips(){
+  const chips=document.getElementById('sess-chips');
+  const count=document.getElementById('sess-count');
+  if(chips)chips.innerHTML=sessionAttendees.map(a=>`<span class="session-attendee-chip"><i class="ti ti-user" style="font-size:11px"></i>${a.name}<span class="remove-chip" onclick="removeAttendee(${a.idx})">×</span></span>`).join('');
+  if(count)count.textContent=`${sessionAttendees.length} attendee${sessionAttendees.length!==1?'s':''} added`;
+}
+
+function saveSession(){
+  const itemId=document.getElementById('sess-item')?.value;
+  const date=document.getElementById('sess-date')?.value;
+  const trainer=document.getElementById('sess-trainer')?.value||'';
+  const notes=document.getElementById('sess-notes')?.value||'';
+  if(!itemId||!date){alert('Please select an in-service item and date.');return;}
+  if(sessionAttendees.length===0){alert('Please add at least one attendee.');return;}
+  const allItems=Object.values(ALL_ITEMS).flat();
+  const item=allItems.find(i=>i.id===itemId);
+  sessionAttendees.forEach(a=>{
+    state.attendance.push({empName:a.name,titles:a.titles,deptName:a.dept,itemId,itemLabel:item?item.item:itemId,date,trainer,notes});
+  });
+  setRecord(itemId,{status:'Compliant',lastReview:date});
+  saveState();
+  const savedEl=document.getElementById('sess-saved');
+  const savedCount=document.getElementById('sess-saved-count');
+  if(savedEl){savedEl.style.display='block';if(savedCount)savedCount.textContent=sessionAttendees.length;}
+  sessionAttendees=[];
+  refreshChips();
+  setTimeout(()=>{const el=document.getElementById('sess-saved');if(el)el.style.display='none';},4000);
+}
+// ── END LOG SESSION ──────────────────────────────────────────
 
 function renderAttendance(){let h=`<div class="section-head"><h2>Attendance log (${state.attendance.length} entries)</h2></div>`;if(state.attendance.length===0){return h+`<div class="card"><div class="empty"><i class="ti ti-clipboard-list" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.3"></i>No attendance entries yet.</div></div>`;}[...state.attendance].reverse().forEach(a=>{h+=`<div class="att-entry"><div class="att-top"><span class="att-who"><i class="ti ti-user" style="font-size:13px"></i> ${a.empName}</span><span class="att-date">${a.date}</span></div><div class="att-dept">${a.titles||a.title||''} &middot; ${a.deptName}${a.trainer?' &middot; Trainer: '+a.trainer:''}</div><div class="att-item">${a.itemId} &mdash; ${a.itemLabel}</div>${a.notes?`<div style="font-size:12px;color:var(--text2);margin-top:4px">${a.notes}</div>`:''}</div>`;});return h;}
 
