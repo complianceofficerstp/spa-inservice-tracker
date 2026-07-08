@@ -307,6 +307,17 @@ function refreshEmployeeList(){
 let sessionAttendees=[];// {idx, name, titles, dept}
 let acHighlight=-1;
 
+function filterSessionItems(){
+  const q=(document.getElementById('sess-item-search')?.value||'').toLowerCase().trim();
+  const allItems=Object.values(ALL_ITEMS).flat();
+  const sel=document.getElementById('sess-item');
+  if(!sel)return;
+  const filtered=q?allItems.filter(i=>i.item.toLowerCase().includes(q)||i.id.toLowerCase().includes(q)||i.cat.toLowerCase().includes(q)):allItems;
+  const currentVal=sel.value;
+  sel.innerHTML=filtered.map(i=>`<option value="${i.id}"${i.id===currentVal?' selected':''}>${i.id} — ${i.item}</option>`).join('');
+  if(filtered.length>0&&!filtered.find(i=>i.id===currentVal))sel.value=filtered[0].id;
+}
+
 function renderLogSession(){
   const allItems=Object.values(ALL_ITEMS).flat();
   sessionAttendees=[];
@@ -315,9 +326,11 @@ function renderLogSession(){
     <div class="form-row">
       <div class="form-group">
         <label>In-service / compliance item</label>
-        <select id="sess-item" style="font-size:13px">
+        <input type="text" id="sess-item-search" placeholder="Search in-services... (e.g. HIPAA, abuse, fire)" oninput="filterSessionItems()" style="margin-bottom:6px">
+        <select id="sess-item" size="6" style="font-size:13px;height:auto;min-height:120px">
           ${allItems.map(i=>`<option value="${i.id}">${i.id} — ${i.item}</option>`).join('')}
         </select>
+        <div style="font-size:11px;font-family:sans-serif;color:var(--text3);margin-top:3px">Click to select an item from the list</div>
       </div>
       <div class="form-group">
         <label>Date of session</label>
