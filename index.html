@@ -138,6 +138,15 @@
   .recent-session-row:last-child{border-bottom:none;}
   .rs-title{font-size:13px;color:var(--text);margin-bottom:2px;}
   .rs-meta{font-size:11px;font-family:sans-serif;color:var(--text2);}
+  .session-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);margin-bottom:10px;overflow:hidden;}
+  .session-card-header{display:flex;align-items:flex-start;justify-content:space-between;padding:1rem 1.25rem;cursor:pointer;gap:10px;}
+  .session-card-header:hover{background:var(--surface2);}
+  .session-card-body{padding:0 1.25rem 1rem;border-top:0.5px solid var(--border);display:none;}
+  .session-card-body.open{display:block;}
+  .session-item-name{font-size:14px;color:var(--text);margin-bottom:4px;}
+  .session-meta-row{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;font-family:sans-serif;color:var(--text2);}
+  .session-meta-badge{display:inline-flex;align-items:center;gap:4px;}
+  .attendee-pill{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);font-size:11px;font-family:sans-serif;padding:2px 8px;border-radius:20px;margin:2px;color:var(--text2);}
   .roster-result-section{margin-top:1rem;}
   .roster-result-section h4{font-size:13px;font-family:sans-serif;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
   .roster-name-list{max-height:220px;overflow-y:auto;border:0.5px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;font-family:sans-serif;}
@@ -216,9 +225,9 @@ function getTitlesArr(emp){return Array.isArray(emp.titles)?emp.titles:(emp.titl
 function getPrimaryDept(emp){const ts=getTitlesArr(emp);for(const t of ts){if(TITLE_DEPT[t])return TITLE_DEPT[t];}return emp.dept||'ADM';}
 
 function navigate(view,dept=null){state.view=view;state.activeDept=dept;renderNav();renderMain();}
-function renderNav(){const nav=document.getElementById('mainNav');const tabs=[{id:'dashboard',label:'Dashboard',icon:'ti-layout-dashboard'},{id:'log-session',label:'Log Session',icon:'ti-writing'},{id:'employees',label:'Employees',icon:'ti-users'},{id:'attendance',label:'Attendance Log',icon:'ti-clipboard-list'},{id:'reports',label:'Reports',icon:'ti-printer'}];nav.innerHTML=tabs.map(t=>`<button class="${state.view===t.id?'active':''}" onclick="navigate('${t.id}')"><i class="ti ${t.icon}"></i> ${t.label}</button>`).join('');}
+function renderNav(){const nav=document.getElementById('mainNav');const tabs=[{id:'dashboard',label:'Dashboard',icon:'ti-layout-dashboard'},{id:'log-session',label:'Log Session',icon:'ti-writing'},{id:'sessions',label:'Sessions',icon:'ti-layout-list'},{id:'employees',label:'Employees',icon:'ti-users'},{id:'attendance',label:'Attendance Log',icon:'ti-clipboard-list'},{id:'reports',label:'Reports',icon:'ti-printer'}];nav.innerHTML=tabs.map(t=>`<button class="${state.view===t.id?'active':''}" onclick="navigate('${t.id}')"><i class="ti ${t.icon}"></i> ${t.label}</button>`).join('');}
 
-function renderMain(){const el=document.getElementById('mainContent');if(state.view==='dashboard')el.innerHTML=renderDashboard();else if(state.view==='dept')el.innerHTML=renderDept();else if(state.view==='employees')el.innerHTML=renderEmployees();else if(state.view==='log-session')el.innerHTML=renderLogSession();else if(state.view==='attendance')el.innerHTML=renderAttendance();else if(state.view==='reports')el.innerHTML=renderReports();else if(state.view==='report-detail')el.innerHTML=renderReportDetail();}
+function renderMain(){const el=document.getElementById('mainContent');if(state.view==='dashboard')el.innerHTML=renderDashboard();else if(state.view==='dept')el.innerHTML=renderDept();else if(state.view==='employees')el.innerHTML=renderEmployees();else if(state.view==='log-session')el.innerHTML=renderLogSession();else if(state.view==='sessions')el.innerHTML=renderSessions();else if(state.view==='attendance')el.innerHTML=renderAttendance();else if(state.view==='reports')el.innerHTML=renderReports();else if(state.view==='report-detail')el.innerHTML=renderReportDetail();}
 
 function getEmpCountByDept(deptId){return state.employees.filter(e=>getPrimaryDept(e)===deptId&&(e.status||'Active')==='Active').length;}
 function getEmpCountByDeptAll(deptId){return state.employees.filter(e=>getPrimaryDept(e)===deptId).length;}
@@ -317,22 +326,7 @@ function renderLogSession(){
   const allItems=Object.values(ALL_ITEMS).flat();
   sessionAttendees=[];
   currentSessionKey=null;
-  // build sessions grouped view
-  const sessionsGrouped=groupSessionsFromAttendance();
-  const recentSessions=sessionsGrouped.slice(0,5);
   return`<div class="section-head"><h2>Log In-Service Session</h2></div>
-
-  ${recentSessions.length>0?`
-  <div class="card" style="margin-bottom:1rem">
-    <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px"><i class="ti ti-history" style="font-size:13px"></i> Recent sessions — click to add more attendees</div>
-    ${recentSessions.map(s=>`<div class="recent-session-row" onclick="continueSession('${s.itemId}','${s.date}','${encodeURIComponent(s.trainer)}','${encodeURIComponent(s.notes||'')}')">
-      <div class="rs-info">
-        <div class="rs-title">${s.itemLabel}</div>
-        <div class="rs-meta">${s.date}${s.trainer?' &middot; '+s.trainer:''} &middot; <strong>${s.count}</strong> attendee${s.count!==1?'s':''}</div>
-      </div>
-      <button class="btn-sm"><i class="ti ti-plus"></i> Add more</button>
-    </div>`).join('')}
-  </div>`:``}
 
   <div class="card" style="margin-bottom:1rem" id="sess-setup-card">
     <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px" id="sess-card-title">New Session</div>
@@ -395,10 +389,68 @@ function groupSessionsFromAttendance(){
   const map={};
   state.attendance.forEach(a=>{
     const key=`${a.itemId}||${a.date}||${a.trainer||''}`;
-    if(!map[key])map[key]={itemId:a.itemId,itemLabel:a.itemLabel,date:a.date,trainer:a.trainer||'',notes:a.notes||'',count:0};
+    if(!map[key])map[key]={itemId:a.itemId,itemLabel:a.itemLabel,date:a.date,trainer:a.trainer||'',notes:a.notes||'',count:0,attendees:[]};
     map[key].count++;
+    map[key].attendees.push({name:a.empName,titles:a.titles||a.title||''});
   });
   return Object.values(map).sort((a,b)=>b.date.localeCompare(a.date));
+}
+
+function renderSessions(){
+  const sessions=groupSessionsFromAttendance();
+  if(sessions.length===0){
+    return`<div class="section-head"><h2>Sessions</h2></div>
+    <div class="card"><div class="empty"><i class="ti ti-layout-list" style="font-size:32px;display:block;margin-bottom:8px;opacity:0.3"></i>No sessions logged yet. Use the Log Session tab to get started.</div></div>`;
+  }
+  const searchVal=document.getElementById('sessionsSearch')?.value||'';
+  const filtered=searchVal?sessions.filter(s=>s.itemLabel.toLowerCase().includes(searchVal.toLowerCase())||s.trainer.toLowerCase().includes(searchVal.toLowerCase())||(s.date&&s.date.includes(searchVal))):sessions;
+  let h=`<div class="section-head"><h2>Sessions (${sessions.length})</h2></div>
+  <div class="filter-row" style="margin-bottom:1rem">
+    <input type="text" id="sessionsSearch" placeholder="Search by in-service name, instructor, or date..." oninput="renderMain()" style="max-width:360px">
+  </div>`;
+  filtered.forEach((s,i)=>{
+    const sessionId=`sess-body-${i}`;
+    h+=`<div class="session-card">
+      <div class="session-card-header" onclick="toggleSessionCard('${sessionId}')">
+        <div style="flex:1">
+          <div class="session-item-name">${s.itemLabel}</div>
+          <div class="session-meta-row">
+            <span class="session-meta-badge"><i class="ti ti-calendar" style="font-size:11px"></i> ${s.date}</span>
+            ${s.trainer?`<span class="session-meta-badge"><i class="ti ti-user" style="font-size:11px"></i> ${s.trainer}</span>`:''}
+            <span class="session-meta-badge"><i class="ti ti-users" style="font-size:11px"></i> ${s.count} attendee${s.count!==1?'s':''}</span>
+            ${s.notes?`<span class="session-meta-badge"><i class="ti ti-note" style="font-size:11px"></i> ${s.notes}</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn-sm" onclick="event.stopPropagation();loadSessionToLogger('${s.itemId}','${s.date}','${encodeURIComponent(s.trainer)}','${encodeURIComponent(s.notes||'')}')">
+            <i class="ti ti-plus"></i> Add attendees
+          </button>
+          <button class="btn-sm" onclick="event.stopPropagation();toggleSessionCard('${sessionId}')">
+            <i class="ti ti-chevron-down" id="chev-${sessionId}"></i>
+          </button>
+        </div>
+      </div>
+      <div class="session-card-body" id="${sessionId}">
+        <div style="padding-top:10px;font-size:12px;font-family:sans-serif;color:var(--text2);margin-bottom:6px">Attendees:</div>
+        <div>${s.attendees.map(a=>`<span class="attendee-pill"><i class="ti ti-user" style="font-size:10px"></i>${a.name}</span>`).join('')}</div>
+      </div>
+    </div>`;
+  });
+  return h;
+}
+
+function toggleSessionCard(id){
+  const body=document.getElementById(id);
+  const chev=document.getElementById('chev-'+id);
+  if(!body)return;
+  body.classList.toggle('open');
+  if(chev)chev.style.transform=body.classList.contains('open')?'rotate(180deg)':'';
+}
+
+function loadSessionToLogger(itemId,date,trainerEnc,notesEnc){
+  navigate('log-session');
+  // slight delay to let renderLogSession finish building the DOM
+  setTimeout(()=>continueSession(itemId,date,trainerEnc,notesEnc),50);
 }
 
 function continueSession(itemId,date,trainerEnc,notesEnc){
