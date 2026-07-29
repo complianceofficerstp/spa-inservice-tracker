@@ -224,7 +224,14 @@ function initials(n){return n.split(' ').map(w=>w[0]).join('').toUpperCase().sli
 function getTitlesArr(emp){return Array.isArray(emp.titles)?emp.titles:(emp.title?[emp.title]:[]);}
 function getPrimaryDept(emp){const ts=getTitlesArr(emp);for(const t of ts){if(TITLE_DEPT[t])return TITLE_DEPT[t];}return emp.dept||'ADM';}
 
-function navigate(view,dept=null){state.view=view;state.activeDept=dept;renderNav();renderMain();}
+function navigate(view,dept=null){
+  // warn if leaving Log Session with unsaved attendees
+  if(state.view==='log-session'&&view!=='log-session'&&sessionAttendees.length>0){
+    const go=confirm(`You have ${sessionAttendees.length} unsaved attendee${sessionAttendees.length!==1?'s':''} in the current session.\n\nLeave without saving?`);
+    if(!go)return;
+  }
+  state.view=view;state.activeDept=dept;renderNav();renderMain();
+}
 function renderNav(){const nav=document.getElementById('mainNav');const tabs=[{id:'dashboard',label:'Dashboard',icon:'ti-layout-dashboard'},{id:'log-session',label:'Log Session',icon:'ti-writing'},{id:'sessions',label:'Sessions',icon:'ti-layout-list'},{id:'employees',label:'Employees',icon:'ti-users'},{id:'attendance',label:'Attendance Log',icon:'ti-clipboard-list'},{id:'reports',label:'Reports',icon:'ti-printer'}];nav.innerHTML=tabs.map(t=>`<button class="${state.view===t.id?'active':''}" onclick="navigate('${t.id}')"><i class="ti ${t.icon}"></i> ${t.label}</button>`).join('');}
 
 function renderMain(){const el=document.getElementById('mainContent');if(state.view==='dashboard')el.innerHTML=renderDashboard();else if(state.view==='dept')el.innerHTML=renderDept();else if(state.view==='employees')el.innerHTML=renderEmployees();else if(state.view==='log-session')el.innerHTML=renderLogSession();else if(state.view==='sessions')el.innerHTML=renderSessions();else if(state.view==='attendance')el.innerHTML=renderAttendance();else if(state.view==='reports')el.innerHTML=renderReports();else if(state.view==='report-detail')el.innerHTML=renderReportDetail();}
@@ -952,6 +959,14 @@ function closeModal(e){if(e&&e.target!==document.querySelector('.modal-overlay')
 
 document.getElementById('addEmpBtn').onclick=openAddEmployeeModal;
 document.getElementById('checkRosterBtn').onclick=openRosterCheckModal;
+
+// warn before closing/refreshing browser with unsaved session attendees
+window.addEventListener('beforeunload',function(e){
+  if(state.view==='log-session'&&sessionAttendees.length>0){
+    e.preventDefault();
+    e.returnValue='You have unsaved attendees in the current session. Are you sure you want to leave?';
+  }
+});
 renderNav();renderMain();
 </script>
 </body>
