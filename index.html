@@ -538,20 +538,58 @@ function showAttendeeAC(){
   const q=(document.getElementById('sess-search')?.value||'').toLowerCase().trim();
   const list=document.getElementById('ac-list');
   if(!q){list.style.display='none';return;}
-  const matches=state.employees.filter(e=>{
-    const alreadyAdded=sessionAttendees.some(a=>a.idx===state.employees.indexOf(e));
-    return !alreadyAdded&&(e.status||'Active')==='Active'&&e.name.toLowerCase().includes(q);
-  }).slice(0,8);
-  if(matches.length===0){list.style.display='none';return;}
+
+  // split into three groups: available, already added, inactive
+  const available=[];
+  const alreadyAdded=[];
+  const inactive=[];
+
+  state.employees.forEach((e,idx)=>{
+    if(!e.name.toLowerCase().includes(q))return;
+    const isAdded=sessionAttendees.some(a=>a.idx===idx);
+    const status=e.status||'Active';
+    const isActive=status==='Active';
+    if(isAdded)alreadyAdded.push({e,idx});
+    else if(!isActive)inactive.push({e,idx,status});
+    else available.push({e,idx});
+  });
+
+  const total=available.length+alreadyAdded.length+inactive.length;
+  if(total===0){list.style.display='none';return;}
+
   acHighlight=-1;
-  list.innerHTML=matches.map((e,i)=>{
-    const idx=state.employees.indexOf(e);
+  let html='';
+
+  // available employees (clickable, shown first)
+  available.slice(0,6).forEach(({e,idx})=>{
     const ts=getTitlesArr(e);
-    return`<div class="autocomplete-item" data-idx="${idx}" onmousedown="addAttendeeByIdx(${idx})">
+    html+=`<div class="autocomplete-item" data-idx="${idx}" onmousedown="addAttendeeByIdx(${idx})">
       <div class="emp-avatar" style="width:26px;height:26px;font-size:10px;flex-shrink:0">${initials(e.name)}</div>
       <div><div>${e.name}</div><div class="ac-title">${ts.slice(0,2).join(', ')}</div></div>
     </div>`;
-  }).join('');
+  });
+
+  // already added (shown but not clickable)
+  alreadyAdded.slice(0,4).forEach(({e,idx})=>{
+    const ts=getTitlesArr(e);
+    html+=`<div class="autocomplete-item" style="opacity:0.55;cursor:default;background:var(--accent-light)">
+      <div class="emp-avatar" style="width:26px;height:26px;font-size:10px;flex-shrink:0;background:var(--accent);color:white">${initials(e.name)}</div>
+      <div style="flex:1"><div>${e.name}</div><div class="ac-title">${ts.slice(0,2).join(', ')}</div></div>
+      <span style="font-size:10px;font-family:sans-serif;color:var(--accent);white-space:nowrap"><i class="ti ti-check" style="font-size:10px"></i> Already added</span>
+    </div>`;
+  });
+
+  // inactive employees (shown, clickable with warning)
+  inactive.slice(0,4).forEach(({e,idx,status})=>{
+    const ts=getTitlesArr(e);
+    html+=`<div class="autocomplete-item" data-idx="${idx}" onmousedown="addInactiveAttendee(${idx},'${encodeURIComponent(status)}')">
+      <div class="emp-avatar" style="width:26px;height:26px;font-size:10px;flex-shrink:0;background:var(--warning-light);color:var(--warning)">${initials(e.name)}</div>
+      <div style="flex:1"><div>${e.name}</div><div class="ac-title">${ts.slice(0,2).join(', ')}</div></div>
+      <span style="font-size:10px;font-family:sans-serif;color:var(--warning);white-space:nowrap"><i class="ti ti-alert-circle" style="font-size:10px"></i> ${status}</span>
+    </div>`;
+  });
+
+  list.innerHTML=html;
   list.style.display='block';
 }
 
@@ -562,6 +600,14 @@ function handleACKey(e){
   else if(e.key==='ArrowUp'){e.preventDefault();acHighlight=Math.max(acHighlight-1,0);items.forEach((el,i)=>el.classList.toggle('selected',i===acHighlight));}
   else if(e.key==='Enter'){e.preventDefault();if(acHighlight>=0&&items[acHighlight]){const idx=parseInt(items[acHighlight].dataset.idx);addAttendeeByIdx(idx);}else if(items.length===1){const idx=parseInt(items[0].dataset.idx);addAttendeeByIdx(idx);}}
   else if(e.key==='Escape'){list.style.display='none';}
+}
+
+function addInactiveAttendee(idx,statusEnc){
+  const emp=state.employees[idx];if(!emp)return;
+  const status=decodeURIComponent(statusEnc);
+  const proceed=confirm(`${emp.name} is currently marked "${status}."\n\nThey are not active — are you sure they attended this session?`);
+  if(!proceed)return;
+  addAttendeeByIdx(idx);
 }
 
 function addAttendeeByIdx(idx){
@@ -619,7 +665,14 @@ function removeAttendee(idx){
 function refreshChips(){
   const chips=document.getElementById('sess-chips');
   const count=document.getElementById('sess-count');
-  if(chips)chips.innerHTML=sessionAttendees.map(a=>`<span class="session-attendee-chip"><i class="ti ti-user" style="font-size:11px"></i>${a.name}<span class="remove-chip" onclick="removeAttendee(${a.idx})">×</span></span>`).join('');
+  if(chips)chips.innerHTML=sessionAttendees.map(a=>{
+    const emp=state.employees[a.idx];
+    const isInactive=emp&&(emp.status||'Active')!=='Active';
+    return`<span class="session-attendee-chip" style="${isInactive?'background:var(--warning-light);color:var(--warning);':''}">
+      <i class="ti ti-user" style="font-size:11px"></i>${a.name}${isInactive?` <i class="ti ti-alert-circle" style="font-size:10px" title="${emp.status}"></i>`:''}
+      <span class="remove-chip" onclick="removeAttendee(${a.idx})">×</span>
+    </span>`;
+  }).join('');
   if(count)count.textContent=`${sessionAttendees.length} attendee${sessionAttendees.length!==1?'s':''} added`;
 }
 
