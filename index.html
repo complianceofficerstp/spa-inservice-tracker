@@ -134,6 +134,10 @@
   .bulk-add-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
   .bulk-add-row select{flex:1;min-width:140px;max-width:220px;}
   .session-saved{background:var(--accent-light);color:var(--accent);font-size:13px;font-family:sans-serif;padding:10px 14px;border-radius:var(--radius);margin-top:1rem;display:none;}
+  .recent-session-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);gap:10px;}
+  .recent-session-row:last-child{border-bottom:none;}
+  .rs-title{font-size:13px;color:var(--text);margin-bottom:2px;}
+  .rs-meta{font-size:11px;font-family:sans-serif;color:var(--text2);}
   .roster-result-section{margin-top:1rem;}
   .roster-result-section h4{font-size:13px;font-family:sans-serif;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
   .roster-name-list{max-height:220px;overflow-y:auto;border:0.5px solid var(--border);border-radius:var(--radius);padding:8px 10px;font-size:13px;font-family:sans-serif;}
@@ -304,48 +308,60 @@ function refreshEmployeeList(){
 }
 
 // ── LOG SESSION ──────────────────────────────────────────────
-let sessionAttendees=[];// {idx, name, titles, dept}
+let sessionAttendees=[];
 let acHighlight=-1;
-
-function filterSessionItems(){
-  const q=(document.getElementById('sess-item-search')?.value||'').toLowerCase().trim();
-  const allItems=Object.values(ALL_ITEMS).flat();
-  const sel=document.getElementById('sess-item');
-  if(!sel)return;
-  const filtered=q?allItems.filter(i=>i.item.toLowerCase().includes(q)||i.id.toLowerCase().includes(q)||i.cat.toLowerCase().includes(q)):allItems;
-  const currentVal=sel.value;
-  sel.innerHTML=filtered.map(i=>`<option value="${i.id}"${i.id===currentVal?' selected':''}>${i.id} — ${i.item}</option>`).join('');
-  if(filtered.length>0&&!filtered.find(i=>i.id===currentVal))sel.value=filtered[0].id;
-}
+let trainerAcHighlight=-1;
+let currentSessionKey=null; // tracks itemId+date+trainer for grouping
 
 function renderLogSession(){
   const allItems=Object.values(ALL_ITEMS).flat();
   sessionAttendees=[];
+  currentSessionKey=null;
+  // build sessions grouped view
+  const sessionsGrouped=groupSessionsFromAttendance();
+  const recentSessions=sessionsGrouped.slice(0,5);
   return`<div class="section-head"><h2>Log In-Service Session</h2></div>
+
+  ${recentSessions.length>0?`
   <div class="card" style="margin-bottom:1rem">
+    <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:8px"><i class="ti ti-history" style="font-size:13px"></i> Recent sessions — click to add more attendees</div>
+    ${recentSessions.map(s=>`<div class="recent-session-row" onclick="continueSession('${s.itemId}','${s.date}','${encodeURIComponent(s.trainer)}','${encodeURIComponent(s.notes||'')}')">
+      <div class="rs-info">
+        <div class="rs-title">${s.itemLabel}</div>
+        <div class="rs-meta">${s.date}${s.trainer?' &middot; '+s.trainer:''} &middot; <strong>${s.count}</strong> attendee${s.count!==1?'s':''}</div>
+      </div>
+      <button class="btn-sm"><i class="ti ti-plus"></i> Add more</button>
+    </div>`).join('')}
+  </div>`:``}
+
+  <div class="card" style="margin-bottom:1rem" id="sess-setup-card">
+    <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:12px" id="sess-card-title">New Session</div>
     <div class="form-row">
       <div class="form-group">
         <label>In-service / compliance item</label>
         <input type="text" id="sess-item-search" placeholder="Search in-services... (e.g. HIPAA, abuse, fire)" oninput="filterSessionItems()" style="margin-bottom:6px">
-        <select id="sess-item" size="6" style="font-size:13px;height:auto;min-height:120px">
+        <select id="sess-item" size="5" style="font-size:13px;height:auto;min-height:110px">
           ${allItems.map(i=>`<option value="${i.id}">${i.id} — ${i.item}</option>`).join('')}
         </select>
-        <div style="font-size:11px;font-family:sans-serif;color:var(--text3);margin-top:3px">Click to select an item from the list</div>
+        <div style="font-size:11px;font-family:sans-serif;color:var(--text3);margin-top:3px">Click to select</div>
       </div>
       <div class="form-group">
         <label>Date of session</label>
         <input type="date" id="sess-date" value="${new Date().toISOString().slice(0,10)}">
+        <div class="form-group" style="margin-top:10px">
+          <label>Notes (optional)</label>
+          <input type="text" id="sess-notes" placeholder="e.g. location, handout given">
+        </div>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Trainer / presenter</label>
-        <input type="text" id="sess-trainer" placeholder="Name or title">
+    <div class="form-group">
+      <label>Instructor / presenter</label>
+      <div class="attendee-wrap">
+        <input type="text" id="sess-trainer" placeholder="Type instructor name to search employees..." autocomplete="off"
+          oninput="showTrainerAC()" onkeydown="handleTrainerKey(event)">
+        <div class="autocomplete-list" id="trainer-ac-list" style="display:none"></div>
       </div>
-      <div class="form-group">
-        <label>Notes (optional)</label>
-        <input type="text" id="sess-notes" placeholder="e.g. location, handout given">
-      </div>
+      <div id="trainer-selected" style="margin-top:6px;font-size:12px;font-family:sans-serif;color:var(--accent)"></div>
     </div>
   </div>
 
@@ -367,11 +383,96 @@ function renderLogSession(){
     <div style="font-size:12px;font-family:sans-serif;color:var(--text3);margin-top:4px" id="sess-count">0 attendees added</div>
   </div>
 
-  <div style="display:flex;gap:8px;align-items:center">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <button class="btn primary" onclick="saveSession()"><i class="ti ti-check"></i> Save Session</button>
-    <button class="btn" onclick="sessionAttendees=[];refreshChips()"><i class="ti ti-x"></i> Clear attendees</button>
+    <button class="btn" onclick="sessionAttendees=[];currentSessionKey=null;refreshChips()"><i class="ti ti-x"></i> Clear attendees</button>
+    <button class="btn" onclick="navigate('log-session')"><i class="ti ti-refresh"></i> New session</button>
   </div>
-  <div class="session-saved" id="sess-saved"><i class="ti ti-circle-check"></i> Session saved! <span id="sess-saved-count"></span> employees logged.</div>`;
+  <div class="session-saved" id="sess-saved"><i class="ti ti-circle-check"></i> Session saved! <span id="sess-saved-count"></span> employees logged. You can keep adding attendees to this session or start a new one.</div>`;
+}
+
+function groupSessionsFromAttendance(){
+  const map={};
+  state.attendance.forEach(a=>{
+    const key=`${a.itemId}||${a.date}||${a.trainer||''}`;
+    if(!map[key])map[key]={itemId:a.itemId,itemLabel:a.itemLabel,date:a.date,trainer:a.trainer||'',notes:a.notes||'',count:0};
+    map[key].count++;
+  });
+  return Object.values(map).sort((a,b)=>b.date.localeCompare(a.date));
+}
+
+function continueSession(itemId,date,trainerEnc,notesEnc){
+  const trainer=decodeURIComponent(trainerEnc);
+  const notes=decodeURIComponent(notesEnc);
+  const allItems=Object.values(ALL_ITEMS).flat();
+  const sel=document.getElementById('sess-item');
+  if(sel){
+    // find and select the item
+    for(let i=0;i<sel.options.length;i++){if(sel.options[i].value===itemId){sel.selectedIndex=i;break;}}
+  }
+  const dateEl=document.getElementById('sess-date');
+  if(dateEl)dateEl.value=date;
+  const trainerEl=document.getElementById('sess-trainer');
+  if(trainerEl)trainerEl.value=trainer;
+  const notesEl=document.getElementById('sess-notes');
+  if(notesEl)notesEl.value=notes;
+  const titleEl=document.getElementById('sess-card-title');
+  const item=allItems.find(i=>i.id===itemId);
+  if(titleEl)titleEl.innerHTML=`<i class="ti ti-plus" style="font-size:12px"></i> Adding to: <span style="color:var(--accent)">${item?item.item:itemId}</span> &middot; ${date}`;
+  currentSessionKey=`${itemId}||${date}||${trainer}`;
+  sessionAttendees=[];
+  refreshChips();
+  document.getElementById('sess-search')?.focus();
+}
+
+// Trainer autocomplete
+function showTrainerAC(){
+  const q=(document.getElementById('sess-trainer')?.value||'').toLowerCase().trim();
+  const list=document.getElementById('trainer-ac-list');
+  if(!q){list.style.display='none';return;}
+  const matches=state.employees.filter(e=>e.name.toLowerCase().includes(q)).slice(0,6);
+  if(matches.length===0){list.style.display='none';return;}
+  trainerAcHighlight=-1;
+  list.innerHTML=matches.map((e,i)=>{
+    const ts=getTitlesArr(e);
+    const idx=state.employees.indexOf(e);
+    return`<div class="autocomplete-item" data-idx="${idx}" onmousedown="selectTrainer(${idx})">
+      <div class="emp-avatar" style="width:26px;height:26px;font-size:10px;flex-shrink:0">${initials(e.name)}</div>
+      <div><div>${e.name}</div><div class="ac-title">${ts.slice(0,2).join(', ')}</div></div>
+    </div>`;
+  }).join('');
+  list.style.display='block';
+}
+
+function handleTrainerKey(e){
+  const list=document.getElementById('trainer-ac-list');
+  const items=list.querySelectorAll('.autocomplete-item');
+  if(e.key==='ArrowDown'){e.preventDefault();trainerAcHighlight=Math.min(trainerAcHighlight+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('selected',i===trainerAcHighlight));}
+  else if(e.key==='ArrowUp'){e.preventDefault();trainerAcHighlight=Math.max(trainerAcHighlight-1,0);items.forEach((el,i)=>el.classList.toggle('selected',i===trainerAcHighlight));}
+  else if(e.key==='Enter'){e.preventDefault();if(trainerAcHighlight>=0&&items[trainerAcHighlight]){selectTrainer(parseInt(items[trainerAcHighlight].dataset.idx));}else if(items.length===1){selectTrainer(parseInt(items[0].dataset.idx));}}
+  else if(e.key==='Escape'){list.style.display='none';}
+}
+
+function selectTrainer(idx){
+  const emp=state.employees[idx];if(!emp)return;
+  const ts=getTitlesArr(emp);
+  const trainerEl=document.getElementById('sess-trainer');
+  if(trainerEl)trainerEl.value=emp.name;
+  const selectedEl=document.getElementById('trainer-selected');
+  if(selectedEl)selectedEl.innerHTML=`<i class="ti ti-check" style="font-size:11px"></i> ${emp.name} &middot; ${ts.slice(0,2).join(', ')}`;
+  const list=document.getElementById('trainer-ac-list');
+  if(list)list.style.display='none';
+}
+
+function filterSessionItems(){
+  const q=(document.getElementById('sess-item-search')?.value||'').toLowerCase().trim();
+  const allItems=Object.values(ALL_ITEMS).flat();
+  const sel=document.getElementById('sess-item');
+  if(!sel)return;
+  const filtered=q?allItems.filter(i=>i.item.toLowerCase().includes(q)||i.id.toLowerCase().includes(q)||i.cat.toLowerCase().includes(q)):allItems;
+  const currentVal=sel.value;
+  sel.innerHTML=filtered.map(i=>`<option value="${i.id}"${i.id===currentVal?' selected':''}>${i.id} — ${i.item}</option>`).join('');
+  if(filtered.length>0&&!filtered.find(i=>i.id===currentVal))sel.value=filtered[0].id;
 }
 
 function showAttendeeAC(){
@@ -477,12 +578,14 @@ function saveSession(){
   });
   setRecord(itemId,{status:'Compliant',lastReview:date});
   saveState();
+  currentSessionKey=`${itemId}||${date}||${trainer}`;
   const savedEl=document.getElementById('sess-saved');
   const savedCount=document.getElementById('sess-saved-count');
   if(savedEl){savedEl.style.display='block';if(savedCount)savedCount.textContent=sessionAttendees.length;}
   sessionAttendees=[];
   refreshChips();
-  setTimeout(()=>{const el=document.getElementById('sess-saved');if(el)el.style.display='none';},4000);
+  // update recent sessions panel if it exists
+  setTimeout(()=>{const el=document.getElementById('sess-saved');if(el)el.style.display='none';},6000);
 }
 // ── END LOG SESSION ──────────────────────────────────────────
 
