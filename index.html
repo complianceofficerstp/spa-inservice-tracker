@@ -453,6 +453,7 @@ function refreshEmployeeList(){
 
 // ── LOG SESSION ──────────────────────────────────────────────
 let sessionAttendees=[];
+let sessionInstructors=[]; // {idx, name, titles}
 let acHighlight=-1;
 let trainerAcHighlight=-1;
 let currentSessionKey=null; // tracks itemId+date+trainer for grouping
@@ -460,6 +461,7 @@ let currentSessionKey=null; // tracks itemId+date+trainer for grouping
 function renderLogSession(){
   const allItems=getAllItemsFlat();
   sessionAttendees=[];
+  sessionInstructors=[];
   currentSessionKey=null;
   return`<div class="section-head"><h2>Log In-Service Session</h2></div>
 
@@ -484,13 +486,14 @@ function renderLogSession(){
       </div>
     </div>
     <div class="form-group">
-      <label>Instructor / presenter</label>
+      <label>Instructor(s) / presenter(s)</label>
       <div class="attendee-wrap">
-        <input type="text" id="sess-trainer" placeholder="Type instructor name to search employees..." autocomplete="off"
+        <input type="text" id="sess-trainer" placeholder="Type name to search employees, or type freely..." autocomplete="off"
           oninput="showTrainerAC()" onkeydown="handleTrainerKey(event)">
         <div class="autocomplete-list" id="trainer-ac-list" style="display:none"></div>
       </div>
-      <div id="trainer-selected" style="margin-top:6px;font-size:12px;font-family:sans-serif;color:var(--accent)"></div>
+      <div id="trainer-chips" style="margin-top:6px;min-height:28px"></div>
+      <div style="font-size:11px;font-family:sans-serif;color:var(--text3);margin-top:3px">Press Enter or click a suggestion to add. Add as many as needed.</div>
     </div>
   </div>
 
@@ -593,16 +596,14 @@ function continueSession(itemId,date,trainerEnc,notesEnc){
   const notes=decodeURIComponent(notesEnc);
   const allItems=getAllItemsFlat();
   const sel=document.getElementById('sess-item');
-  if(sel){
-    // find and select the item
-    for(let i=0;i<sel.options.length;i++){if(sel.options[i].value===itemId){sel.selectedIndex=i;break;}}
-  }
+  if(sel){for(let i=0;i<sel.options.length;i++){if(sel.options[i].value===itemId){sel.selectedIndex=i;break;}}}
   const dateEl=document.getElementById('sess-date');
   if(dateEl)dateEl.value=date;
-  const trainerEl=document.getElementById('sess-trainer');
-  if(trainerEl)trainerEl.value=trainer;
   const notesEl=document.getElementById('sess-notes');
   if(notesEl)notesEl.value=notes;
+  // restore instructor chips from comma-separated trainer string
+  sessionInstructors=trainer?trainer.split(',').map(n=>({idx:null,name:n.trim(),titles:''})).filter(t=>t.name):[]; 
+  refreshTrainerChips();
   const titleEl=document.getElementById('sess-card-title');
   const item=allItems.find(i=>i.id===itemId);
   if(titleEl)titleEl.innerHTML=`<i class="ti ti-plus" style="font-size:12px"></i> Adding to: <span style="color:var(--accent)">${item?item.item:itemId}</span> &middot; ${date}`;
@@ -636,19 +637,47 @@ function handleTrainerKey(e){
   const items=list.querySelectorAll('.autocomplete-item');
   if(e.key==='ArrowDown'){e.preventDefault();trainerAcHighlight=Math.min(trainerAcHighlight+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('selected',i===trainerAcHighlight));}
   else if(e.key==='ArrowUp'){e.preventDefault();trainerAcHighlight=Math.max(trainerAcHighlight-1,0);items.forEach((el,i)=>el.classList.toggle('selected',i===trainerAcHighlight));}
-  else if(e.key==='Enter'){e.preventDefault();if(trainerAcHighlight>=0&&items[trainerAcHighlight]){selectTrainer(parseInt(items[trainerAcHighlight].dataset.idx));}else if(items.length===1){selectTrainer(parseInt(items[0].dataset.idx));}}
+  else if(e.key==='Enter'){e.preventDefault();if(trainerAcHighlight>=0&&items[trainerAcHighlight]){selectTrainer(parseInt(items[trainerAcHighlight].dataset.idx));}else if(items.length===1){selectTrainer(parseInt(items[0].dataset.idx));}else{addFreeformTrainer();}}
   else if(e.key==='Escape'){list.style.display='none';}
 }
 
 function selectTrainer(idx){
   const emp=state.employees[idx];if(!emp)return;
+  if(sessionInstructors.some(t=>t.idx===idx))return; // no dupe instructors
   const ts=getTitlesArr(emp);
+  sessionInstructors.push({idx,name:emp.name,titles:ts.slice(0,2).join(', ')});
   const trainerEl=document.getElementById('sess-trainer');
-  if(trainerEl)trainerEl.value=emp.name;
-  const selectedEl=document.getElementById('trainer-selected');
-  if(selectedEl)selectedEl.innerHTML=`<i class="ti ti-check" style="font-size:11px"></i> ${emp.name} &middot; ${ts.slice(0,2).join(', ')}`;
+  if(trainerEl){trainerEl.value='';trainerEl.focus();}
   const list=document.getElementById('trainer-ac-list');
   if(list)list.style.display='none';
+  refreshTrainerChips();
+}
+
+function addFreeformTrainer(){
+  const trainerEl=document.getElementById('sess-trainer');
+  const val=trainerEl?.value.trim();
+  if(!val)return;
+  // check not already added as freeform
+  if(sessionInstructors.some(t=>t.name===val))return;
+  sessionInstructors.push({idx:null,name:val,titles:''});
+  trainerEl.value='';trainerEl.focus();
+  const list=document.getElementById('trainer-ac-list');
+  if(list)list.style.display='none';
+  refreshTrainerChips();
+}
+
+function removeInstructor(name){
+  sessionInstructors=sessionInstructors.filter(t=>t.name!==name);
+  refreshTrainerChips();
+}
+
+function refreshTrainerChips(){
+  const chips=document.getElementById('trainer-chips');
+  if(!chips)return;
+  chips.innerHTML=sessionInstructors.map(t=>`<span class="session-attendee-chip" style="background:var(--info-light);color:var(--info)">
+    <i class="ti ti-user-check" style="font-size:11px"></i>${t.name}${t.titles?` <span style="opacity:0.7;font-size:10px">(${t.titles})</span>`:''}
+    <span class="remove-chip" onclick="removeInstructor('${t.name.replace(/'/g,"\\'")}')">×</span>
+  </span>`).join('');
 }
 
 function filterSessionItems(){
@@ -807,7 +836,13 @@ function refreshChips(){
 function saveSession(){
   const itemId=document.getElementById('sess-item')?.value;
   const date=document.getElementById('sess-date')?.value;
-  const trainer=document.getElementById('sess-trainer')?.value||'';
+  // pick up any freeform text still in the trainer input
+  const trainerInput=document.getElementById('sess-trainer')?.value.trim();
+  if(trainerInput&&!sessionInstructors.some(t=>t.name===trainerInput)){
+    sessionInstructors.push({idx:null,name:trainerInput,titles:''});
+    refreshTrainerChips();
+  }
+  const trainer=sessionInstructors.map(t=>t.name).join(', ');
   const notes=document.getElementById('sess-notes')?.value||'';
   if(!itemId||!date){alert('Please select an in-service item and date.');return;}
   if(sessionAttendees.length===0){alert('Please add at least one attendee.');return;}
@@ -824,7 +859,6 @@ function saveSession(){
   if(savedEl){savedEl.style.display='block';if(savedCount)savedCount.textContent=sessionAttendees.length;}
   sessionAttendees=[];
   refreshChips();
-  // update recent sessions panel if it exists
   setTimeout(()=>{const el=document.getElementById('sess-saved');if(el)el.style.display='none';},6000);
 }
 // ── END LOG SESSION ──────────────────────────────────────────
