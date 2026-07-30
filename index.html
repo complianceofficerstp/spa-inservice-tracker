@@ -746,6 +746,12 @@ function showAttendeeAC(){
     </div>`;
   });
 
+  // always show "add new" option at bottom when typing
+  html+=`<div class="autocomplete-item" style="border-top:0.5px solid var(--border);background:var(--surface2)" onmousedown="openQuickAddEmployee('${q.replace(/'/g,"\\'")}')">
+    <div class="emp-avatar" style="width:26px;height:26px;font-size:10px;flex-shrink:0;background:var(--accent);color:white"><i class="ti ti-plus" style="font-size:12px"></i></div>
+    <div><div style="color:var(--accent);font-weight:500">Add "${q}" as new employee</div><div class="ac-title">Opens quick-add without losing session progress</div></div>
+  </div>`;
+
   list.innerHTML=html;
   list.style.display='block';
 }
@@ -757,6 +763,68 @@ function handleACKey(e){
   else if(e.key==='ArrowUp'){e.preventDefault();acHighlight=Math.max(acHighlight-1,0);items.forEach((el,i)=>el.classList.toggle('selected',i===acHighlight));}
   else if(e.key==='Enter'){e.preventDefault();if(acHighlight>=0&&items[acHighlight]){const idx=parseInt(items[acHighlight].dataset.idx);addAttendeeByIdx(idx);}else if(items.length===1){const idx=parseInt(items[0].dataset.idx);addAttendeeByIdx(idx);}}
   else if(e.key==='Escape'){list.style.display='none';}
+}
+
+function openQuickAddEmployee(prefillName=''){
+  document.getElementById('modalContainer').innerHTML=`<div class="modal-overlay" onclick="closeModal(event)"><div class="modal" onclick="event.stopPropagation()">
+    <h3><i class="ti ti-user-plus"></i> Quick Add Employee</h3>
+    <div class="subtitle">Employee will be saved and immediately added to this session.</div>
+    <div class="form-group"><label>Full name</label><input type="text" id="qe-n" value="${prefillName}" placeholder="First Last"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Job title</label>
+        <select id="qe-t" onchange="qeAutoDept()">${TITLES.map(t=>`<option>${t}</option>`).join('')}</select>
+      </div>
+      <div class="form-group"><label>Department</label>
+        <select id="qe-d">${DEPTS.map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Employee ID / PIN</label><input type="text" id="qe-p" placeholder="e.g. 1001"></div>
+      <div class="form-group"><label>Status</label>
+        <select id="qe-s">${STATUS_OPTIONS.map(s=>`<option value="${s.id}">${s.label}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveQuickEmployee()"><i class="ti ti-user-check"></i> Save & add to session</button>
+    </div>
+  </div></div>`;
+}
+
+function qeAutoDept(){
+  const t=document.getElementById('qe-t')?.value;
+  const d=TITLE_DEPT[t];
+  if(d){const sel=document.getElementById('qe-d');if(sel)sel.value=d;}
+}
+
+function saveQuickEmployee(){
+  const name=document.getElementById('qe-n')?.value.trim();
+  if(!name){alert('Please enter a name.');return;}
+  // duplicate check
+  const dupes=findPossibleDuplicates(name);
+  if(dupes.length>0){
+    const dupeList=dupes.map(d=>`${d.name} (${getTitlesArr(d).join(', ')||'no title'})`).join('\n');
+    const proceed=confirm(`Possible duplicate:\n\n${dupeList}\n\nAdd "${name}" anyway?`);
+    if(!proceed)return;
+  }
+  const title=document.getElementById('qe-t')?.value;
+  const dept=document.getElementById('qe-d')?.value;
+  const pin=document.getElementById('qe-p')?.value||'';
+  const status=document.getElementById('qe-s')?.value||'Active';
+  const newEmp={name,titles:[title],dept,pin,hire:'',status};
+  state.employees.push(newEmp);
+  saveState();
+  const newIdx=state.employees.length-1;
+  closeModal();
+  // add directly to session
+  const deptObj=DEPTS.find(d=>d.id===dept);
+  sessionAttendees.push({idx:newIdx,name,titles:title,dept:deptObj?deptObj.name:dept});
+  refreshChips();
+  // refocus search
+  setTimeout(()=>{
+    const inp=document.getElementById('sess-search');
+    if(inp){inp.value='';inp.focus();}
+  },50);
 }
 
 function addInactiveAttendee(idx,statusEnc){
