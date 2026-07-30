@@ -758,11 +758,32 @@ function showAttendeeAC(){
 
 function handleACKey(e){
   const list=document.getElementById('ac-list');
-  const items=list.querySelectorAll('.autocomplete-item');
-  if(e.key==='ArrowDown'){e.preventDefault();acHighlight=Math.min(acHighlight+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('selected',i===acHighlight));}
-  else if(e.key==='ArrowUp'){e.preventDefault();acHighlight=Math.max(acHighlight-1,0);items.forEach((el,i)=>el.classList.toggle('selected',i===acHighlight));}
-  else if(e.key==='Enter'){e.preventDefault();if(acHighlight>=0&&items[acHighlight]){const idx=parseInt(items[acHighlight].dataset.idx);addAttendeeByIdx(idx);}else if(items.length===1){const idx=parseInt(items[0].dataset.idx);addAttendeeByIdx(idx);}}
-  else if(e.key==='Escape'){list.style.display='none';}
+  // only items with data-idx are real employees — exclude the "add new" row from keyboard nav
+  const items=Array.from(list.querySelectorAll('.autocomplete-item[data-idx]'));
+  if(e.key==='ArrowDown'){
+    e.preventDefault();
+    acHighlight=Math.min(acHighlight+1,items.length-1);
+    items.forEach((el,i)=>el.classList.toggle('selected',i===acHighlight));
+  } else if(e.key==='ArrowUp'){
+    e.preventDefault();
+    acHighlight=Math.max(acHighlight-1,0);
+    items.forEach((el,i)=>el.classList.toggle('selected',i===acHighlight));
+  } else if(e.key==='Enter'){
+    e.preventDefault();
+    if(acHighlight>=0&&items[acHighlight]){
+      // user arrowed to a specific item
+      addAttendeeByIdx(parseInt(items[acHighlight].dataset.idx));
+    } else if(items.length===1){
+      // only one real match — add it automatically
+      addAttendeeByIdx(parseInt(items[0].dataset.idx));
+    } else if(items.length>1){
+      // multiple matches — add the first available one
+      addAttendeeByIdx(parseInt(items[0].dataset.idx));
+    }
+    // if items.length===0, do nothing (let user click "add new")
+  } else if(e.key==='Escape'){
+    list.style.display='none';
+  }
 }
 
 function openQuickAddEmployee(prefillName=''){
